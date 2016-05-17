@@ -15,6 +15,7 @@
  */
 package taxi;
 
+import com.github.rinde.rinsim.core.model.pdp.Depot;
 import com.github.rinde.rinsim.core.model.pdp.PDPModel;
 import com.github.rinde.rinsim.core.model.pdp.Parcel;
 import com.github.rinde.rinsim.core.model.pdp.Vehicle;
@@ -34,14 +35,24 @@ import com.google.common.base.Optional;
 class Taxi extends Vehicle {
   private static final double SPEED = 1000d;
   private Optional<Parcel> curr;
+  /**
+   * Different taxis can have different gas tank sizes.
+   */
+  private int tankSize;
+  /**
+   * Amount of gas (time) left.
+   */
+  private int gas;
 
-  Taxi(Point startPosition, int capacity) {
+  Taxi(Point startPosition, int capacity, int tankSize, int gas) {
     super(VehicleDTO.builder()
       .capacity(capacity)
       .startPosition(startPosition)
       .speed(SPEED)
       .build());
     curr = Optional.absent();
+    this.tankSize = tankSize;
+    this.gas = gas;
   }
 
   @Override
@@ -55,13 +66,28 @@ class Taxi extends Vehicle {
     if (!time.hasTimeLeft()) {
       return;
     }
-    if (!curr.isPresent()) {
-    	//TODO check gradient and move towards its source
-    	
-      curr = Optional.fromNullable(RoadModels.findClosestObject(
-        rm.getPosition(this), rm, Parcel.class));
-    }
 
+    // if the taxi isn't assigned to a customer go to the nearest taxi base
+    if (!curr.isPresent()) {
+    	Point position = rm.getPosition(this);
+    	//if the taxi is low on gas, go to the nearest gas station
+    	//if (lowGas()) {
+    		
+    	//} else
+    	{
+	    	
+	    	TaxiBase closestBase = (TaxiBase) RoadModels.findClosestObject(position, rm, TaxiBase.class);
+	    	if (!position.equals(rm.getPosition(closestBase))) {
+	    		rm.moveTo(this, closestBase, time);
+	    	} else {
+	    		//if taxi is at the taxi base -> add one, to counter balance the 
+	    		//gas-- at the end of the method; this is NOT refilling, just
+	    		//keeping the amount of gas the same
+	    		gas++;
+	    	}
+    	}
+    }
+    // if it is assigned
     if (curr.isPresent()) {
       final boolean inCargo = pm.containerContains(this, curr.get());
       // sanity check: if it is not in our cargo AND it is also not on the
@@ -75,6 +101,7 @@ class Taxi extends Vehicle {
         if (rm.getPosition(this).equals(curr.get().getDeliveryLocation())) {
           // drop off passengers
           pm.deliver(this, curr.get(), time);
+          //curr = Optional.absent();
         }
       } else {
         // it is still available, go there as fast as possible
@@ -85,5 +112,24 @@ class Taxi extends Vehicle {
         }
       }
     }
+    
+    //reduce amount of gas
+    gas--;
+  }
+  
+  public void assingCustomer(Parcel customer) {
+	  curr = Optional.fromNullable(customer);
+  }
+  
+  public boolean isFree() {
+	  return !curr.isPresent(); //&& !lowGas();
+  }
+
+  /**
+   * Checks if gas level is below 20%.
+   * @return
+   */
+  private boolean lowGas() {
+	  return gas < Math.round(tankSize / 5);
   }
 }

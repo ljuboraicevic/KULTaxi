@@ -19,7 +19,12 @@ import static com.google.common.collect.Maps.newHashMap;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -35,10 +40,10 @@ import com.github.rinde.rinsim.core.model.pdp.Parcel;
 import com.github.rinde.rinsim.core.model.pdp.ParcelDTO;
 import com.github.rinde.rinsim.core.model.road.RoadModel;
 import com.github.rinde.rinsim.core.model.road.RoadModelBuilders;
+import com.github.rinde.rinsim.core.model.road.RoadModels;
 import com.github.rinde.rinsim.core.model.time.TickListener;
 import com.github.rinde.rinsim.core.model.time.TimeLapse;
 import com.github.rinde.rinsim.event.Listener;
-//import com.github.rinde.rinsim.examples.core.taxi.TaxiRenderer.Language;
 import com.github.rinde.rinsim.geom.Graph;
 import com.github.rinde.rinsim.geom.MultiAttributeData;
 import com.github.rinde.rinsim.geom.Point;
@@ -58,8 +63,14 @@ import com.github.rinde.rinsim.ui.renderers.RoadUserRenderer;
  */
 public final class TaxiExample {
 
-  private static final int NUM_DEPOTS = 1;
-  private static final int NUM_TAXIS = 20;
+	private static final double RADIUS = 35000;
+	private static final int MAX_TANK = 3000;
+	private static final int NUM_GAS_STATIONS = 3;
+	
+	/******************/
+	
+  private static final int NUM_DEPOTS = 3;
+  private static final int NUM_TAXIS = 30;
   /**
    * Initial number of customers
    */
@@ -132,21 +143,28 @@ public final class TaxiExample {
 
     final RoadModel roadModel = simulator.getModelProvider().getModel(RoadModel.class);
     
-    //add depots, taxis and parcels to simulator
+    //add depots
     for (int i = 0; i < NUM_DEPOTS; i++) {
       simulator.register(new TaxiBase(roadModel.getRandomPosition(rng), DEPOT_CAPACITY));
     }
     
-    for (int i = 0; i < NUM_TAXIS; i++) {
-      simulator.register(new Taxi(roadModel.getRandomPosition(rng), TAXI_CAPACITY));
+  //add gas stations
+    for (int i = 0; i < NUM_GAS_STATIONS; i++) {
+      simulator.register(new GasStation(roadModel.getRandomPosition(rng), DEPOT_CAPACITY));
     }
     
+    // add taxis
+    for (int i = 0; i < NUM_TAXIS; i++) {
+    	int tankSize = (MAX_TANK / 2) + rng.nextInt(MAX_TANK / 2);
+    	int gas = Math.round(tankSize / 3) + rng.nextInt(tankSize / 2);
+    	simulator.register(new Taxi(roadModel.getRandomPosition(rng), TAXI_CAPACITY, tankSize, gas));
+    }
+    
+    // add customers and assign them to taxis
     for (int i = 0; i < NUM_CUSTOMERS; i++) {
-      simulator.register(new Customer(
-        Parcel.builder(roadModel.getRandomPosition(rng), roadModel.getRandomPosition(rng))
-        		.serviceDuration(SERVICE_DURATION)
-        		.neededCapacity(1 + rng.nextInt(MAX_CAPACITY))
-        		.buildDTO()));
+    	Customer cust = generateNewRandomCustomer(roadModel, rng);
+    	simulator.register(cust);
+    	callForTaxi(cust.getPickupLocation(), roadModel, rng).assingCustomer(cust);
     }
 
     simulator.addTickListener(new TickListener() {
@@ -158,20 +176,71 @@ public final class TaxiExample {
         } 
         // if we still have time, roll the dice and maybe add a new customer
         else if (rng.nextDouble() < NEW_CUSTOMER_PROB) {
-          simulator.register(new Customer(
-            Parcel.builder(roadModel.getRandomPosition(rng), roadModel.getRandomPosition(rng))
-            	.serviceDuration(SERVICE_DURATION)
-            	.neededCapacity(1 + rng.nextInt(MAX_CAPACITY))
-            	.buildDTO()));
+        	
+        	//generate a new customer, register it and assing a taxi to it
+        	Customer cust = generateNewRandomCustomer(roadModel, rng);
+        	simulator.register(cust);
+        	callForTaxi(cust.getPickupLocation(), roadModel, rng).assingCustomer(cust);
         }
       }
 
       @Override
       public void afterTick(TimeLapse timeLapse) {}
     });
+    
+    
     simulator.start();
 
     return simulator;
+  }
+  
+  /**
+   * Simulates radio taxi coordination - find a list of taxis within a RADIUS
+   * and take one at random (simulates the fact that the first taxi driver that
+   * responds to the radio call gets assigned to a customer). If there are no
+   * free taxis within the radius, repeat the search with an increased radius. 
+   * 
+   * @param custLocation Customers position
+   * @param rm
+   * @param rng
+   * @return First taxi to respond to the broadcast (kind of)
+   */
+  private static Taxi callForTaxi(Point custLocation, RoadModel rm, RandomGenerator rng) {
+	  Collection<Taxi> taxisWithinRadius = new ArrayList<>();
+	  ArrayList<Taxi> freeTaxisWithinRadius = new ArrayList<>();
+	  double currentRadius = RADIUS;
+	  do {
+		  taxisWithinRadius = RoadModels.findObjectsWithinRadius(
+				  custLocation, 
+				  rm, 
+				  currentRadius, 
+				  Taxi.class);
+		  
+		  for (Taxi t: taxisWithinRadius) {
+			  if (t.isFree()) {
+				  freeTaxisWithinRadius.add(t);
+			  }
+		  }
+		  
+		  currentRadius += 0.5 * RADIUS;
+	  } while (freeTaxisWithinRadius.isEmpty());
+	  
+	  int chosenTaxi = rng.nextInt(freeTaxisWithinRadius.size());
+	  
+	  //System.out.println(rm.getPosition(freeTaxisWithinRadius.get(chosenTaxi)) + " -> " + custLocation);
+	  
+	  return freeTaxisWithinRadius.get(chosenTaxi);
+  }
+  
+  private static Customer generateNewRandomCustomer(RoadModel rm, RandomGenerator rng) {
+	  Point custLocation = rm.getRandomPosition(rng);
+	  Point custDestination = rm.getRandomPosition(rng);
+  	
+	  return new Customer(
+              Parcel.builder(custLocation, custDestination)
+          	.serviceDuration(SERVICE_DURATION)
+          	.neededCapacity(1 + rng.nextInt(MAX_CAPACITY))
+          	.buildDTO());
   }
 
   static View.Builder createGui(
@@ -188,7 +257,10 @@ public final class TaxiExample {
         .withImageAssociation(
           Taxi.class, "/graphics/flat/taxi-32.png")
         .withImageAssociation(
-          Customer.class, "/graphics/flat/person-red-32.png"))
+          Customer.class, "/graphics/flat/person-red-32.png")
+        .withImageAssociation(
+        	GasStation.class, 
+        	"/graphics/flat/warehouse-32.png"))
       //.with(TaxiRenderer.builder(TaxiRenderer.Language.ENGLISH))
       .withTitleAppendix("Taxi Demo");
 
@@ -234,17 +306,17 @@ public final class TaxiExample {
   /**
    * A customer with very permissive time windows.
    */
-  static class Customer extends Parcel {
+  /*static class Customer extends Parcel {
     Customer(ParcelDTO dto) {
       super(dto);
     }
 
     @Override
     public void initRoadPDP(RoadModel pRoadModel, PDPModel pPdpModel) {}
-  }
+  }*/
 
   // currently has no function
-  static class TaxiBase extends Depot {
+  /*static class TaxiBase extends Depot {
     TaxiBase(Point position, double capacity) {
       super(position);
       setCapacity(capacity);
@@ -252,6 +324,6 @@ public final class TaxiExample {
 
     @Override
     public void initRoadPDP(RoadModel pRoadModel, PDPModel pPdpModel) {}
-  }
+  }*/
 
 }
