@@ -74,7 +74,7 @@ public final class TaxiExample {
   /**
    * Initial number of customers
    */
-  private static final int NUM_CUSTOMERS = 0;
+  private static final int NUM_CUSTOMERS = 10;
 
   // time in ms
   private static final long SERVICE_DURATION = 60000;
@@ -100,6 +100,10 @@ public final class TaxiExample {
    *          simulation.
    */
   public static void main(@Nullable String[] args) {
+	  if (NUM_CUSTOMERS > NUM_TAXIS) { 
+		  System.out.println("Number of initial customers is greater than the number of taxis");
+		  System.exit(1);
+	  }
     final long endTime = args != null && args.length >= 1 ? Long
       .parseLong(args[0]) : Long.MAX_VALUE;
 
@@ -148,23 +152,29 @@ public final class TaxiExample {
       simulator.register(new TaxiBase(roadModel.getRandomPosition(rng), DEPOT_CAPACITY));
     }
     
-  //add gas stations
+	//add gas stations
     for (int i = 0; i < NUM_GAS_STATIONS; i++) {
       simulator.register(new GasStation(roadModel.getRandomPosition(rng), DEPOT_CAPACITY));
     }
     
+    //this list is used to assign initial customers to taxis - doesn't take
+    //the distance between the taxi and the customer into account; first customer
+    //gets the first taxi etc
+    ArrayList<Taxi> initialListOfTaxies = new ArrayList<>();
     // add taxis
     for (int i = 0; i < NUM_TAXIS; i++) {
     	int tankSize = (MAX_TANK / 2) + rng.nextInt(MAX_TANK / 2);
     	int gas = Math.round(tankSize / 3) + rng.nextInt(tankSize / 2);
-    	simulator.register(new Taxi(roadModel.getRandomPosition(rng), TAXI_CAPACITY, tankSize, gas));
+    	Taxi taxi = new Taxi(roadModel.getRandomPosition(rng), TAXI_CAPACITY, tankSize, gas);
+    	simulator.register(taxi);
+    	initialListOfTaxies.add(taxi);
     }
     
-    // add customers and assign them to taxis
+    // add customers and assign them to taxis - DOESN'T WORK - HAS TO BE ZERO
     for (int i = 0; i < NUM_CUSTOMERS; i++) {
     	Customer cust = generateNewRandomCustomer(roadModel, rng);
     	simulator.register(cust);
-    	callForTaxi(cust.getPickupLocation(), roadModel, rng, RADIUS).assingCustomer(cust);
+    	initialListOfTaxies.get(i).assingCustomer(cust);
     }
     
     simulator.addTickListener(new TickListener() {
@@ -314,28 +324,4 @@ public final class TaxiExample {
       throw new IllegalStateException(e);
     }
   }
-
-  /**
-   * A customer with very permissive time windows.
-   */
-  /*static class Customer extends Parcel {
-    Customer(ParcelDTO dto) {
-      super(dto);
-    }
-
-    @Override
-    public void initRoadPDP(RoadModel pRoadModel, PDPModel pPdpModel) {}
-  }*/
-
-  // currently has no function
-  /*static class TaxiBase extends Depot {
-    TaxiBase(Point position, double capacity) {
-      super(position);
-      setCapacity(capacity);
-    }
-
-    @Override
-    public void initRoadPDP(RoadModel pRoadModel, PDPModel pPdpModel) {}
-  }*/
-
 }
