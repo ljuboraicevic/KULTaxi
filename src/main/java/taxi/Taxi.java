@@ -33,7 +33,7 @@ import com.google.common.base.Optional;
  * @author Rinde van Lon
  */
 class Taxi extends Vehicle {
-  private static final double SPEED = 1000d;
+  private static final double SPEED = 10000d;
   private Optional<Parcel> curr;
   /**
    * Different taxis can have different gas tank sizes.
@@ -67,15 +67,23 @@ class Taxi extends Vehicle {
       return;
     }
 
+    Point position = rm.getPosition(this);
+    
     // if the taxi isn't assigned to a customer go to the nearest taxi base
     if (!curr.isPresent()) {
-    	Point position = rm.getPosition(this);
+    	
     	//if the taxi is low on gas, go to the nearest gas station
-    	//if (lowGas()) {
-    		
-    	//} else
-    	{
-	    	
+    	if (lowGas()) {
+    		GasStation closestGasStation = (GasStation) RoadModels.findClosestObject(position, rm, GasStation.class);
+    		rm.moveTo(this, closestGasStation, time);
+    		//refill the tank when gas station is reached
+    		if (rm.equalPosition(this, closestGasStation)) {
+    			gas = tankSize;
+    			System.out.println("refilled");
+    		}
+    	}
+    	// if gas isn't low
+    	else {
 	    	TaxiBase closestBase = (TaxiBase) RoadModels.findClosestObject(position, rm, TaxiBase.class);
 	    	if (!position.equals(rm.getPosition(closestBase))) {
 	    		rm.moveTo(this, closestBase, time);
@@ -98,10 +106,10 @@ class Taxi extends Vehicle {
         // if it is in cargo, go to its destination
         rm.moveTo(this, curr.get().getDeliveryLocation(), time);
         // if we're at the destination
-        if (rm.getPosition(this).equals(curr.get().getDeliveryLocation())) {
+        if (position.equals(curr.get().getDeliveryLocation())) {
           // drop off passengers
           pm.deliver(this, curr.get(), time);
-          //curr = Optional.absent();
+          curr = Optional.absent();
         }
       } else {
         // it is still available, go there as fast as possible
@@ -122,7 +130,7 @@ class Taxi extends Vehicle {
   }
   
   public boolean isFree() {
-	  return !curr.isPresent(); //&& !lowGas();
+	  return !curr.isPresent() && !lowGas();
   }
 
   /**

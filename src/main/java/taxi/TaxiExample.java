@@ -63,18 +63,18 @@ import com.github.rinde.rinsim.ui.renderers.RoadUserRenderer;
  */
 public final class TaxiExample {
 
-	private static final double RADIUS = 35000;
-	private static final int MAX_TANK = 3000;
+	private static final double RADIUS = 20000;
+	private static final int MAX_TANK = 5000;
 	private static final int NUM_GAS_STATIONS = 3;
 	
 	/******************/
 	
   private static final int NUM_DEPOTS = 3;
-  private static final int NUM_TAXIS = 30;
+  private static final int NUM_TAXIS = 10;
   /**
    * Initial number of customers
    */
-  private static final int NUM_CUSTOMERS = 30;
+  private static final int NUM_CUSTOMERS = 0;
 
   // time in ms
   private static final long SERVICE_DURATION = 60000;
@@ -83,7 +83,7 @@ public final class TaxiExample {
 
   private static final int SPEED_UP = 4;
   private static final int MAX_CAPACITY = 3;
-  private static final double NEW_CUSTOMER_PROB = .0007;
+  private static final double NEW_CUSTOMER_PROB = .01;
 
   private static final String MAP_FILE = "/data/maps/leuven-simple.dot";
   private static final Map<String, Graph<MultiAttributeData>> GRAPH_CACHE =
@@ -164,10 +164,13 @@ public final class TaxiExample {
     for (int i = 0; i < NUM_CUSTOMERS; i++) {
     	Customer cust = generateNewRandomCustomer(roadModel, rng);
     	simulator.register(cust);
-    	callForTaxi(cust.getPickupLocation(), roadModel, rng).assingCustomer(cust);
+    	callForTaxi(cust.getPickupLocation(), roadModel, rng, RADIUS).assingCustomer(cust);
     }
-
+    
     simulator.addTickListener(new TickListener() {
+    	ArrayList<Customer> bufferedCustomers = new ArrayList<>();
+    	double radius = RADIUS;
+    	
       @Override
       public void tick(TimeLapse time) {
     	//stop the simulation if time runs out
@@ -175,12 +178,25 @@ public final class TaxiExample {
           simulator.stop();
         } 
         // if we still have time, roll the dice and maybe add a new customer
-        else if (rng.nextDouble() < NEW_CUSTOMER_PROB) {
+        else {
+        	if (rng.nextDouble() < NEW_CUSTOMER_PROB) {
+        		Customer cust = generateNewRandomCustomer(roadModel, rng);
+	        	bufferedCustomers.add(cust);
+	        	simulator.register(cust);
+        	}
         	
-        	//generate a new customer, register it and assing a taxi to it
-        	Customer cust = generateNewRandomCustomer(roadModel, rng);
-        	simulator.register(cust);
-        	callForTaxi(cust.getPickupLocation(), roadModel, rng).assingCustomer(cust);
+        	//if there are some customers that haven't been assigned to a taxi
+        	//assign them now
+        	if (bufferedCustomers.size() > 0) {
+        		Customer cust = bufferedCustomers.get(0);
+        		Taxi taxi = callForTaxi(cust.getPickupLocation(), roadModel, rng, radius);
+	        	if (taxi != null) {
+	        		taxi.assingCustomer(cust);
+	        		bufferedCustomers.remove(0);
+	        		radius = RADIUS;
+	        	}
+	        	radius += 0.5 * RADIUS;
+        	}
         }
       }
 
@@ -195,41 +211,37 @@ public final class TaxiExample {
   }
   
   /**
-   * Simulates radio taxi coordination - find a list of taxis within a RADIUS
-   * and take one at random (simulates the fact that the first taxi driver that
-   * responds to the radio call gets assigned to a customer). If there are no
-   * free taxis within the radius, repeat the search with an increased radius. 
+   * Try to find a free taxi within a given radius. If it fails, another call
+   * will be made, with increased radius from the tick. 
    * 
    * @param custLocation Customers position
    * @param rm
    * @param rng
    * @return First taxi to respond to the broadcast (kind of)
    */
-  private static Taxi callForTaxi(Point custLocation, RoadModel rm, RandomGenerator rng) {
+  private static Taxi callForTaxi(Point custLocation, RoadModel rm, RandomGenerator rng, double radius) {
+
 	  Collection<Taxi> taxisWithinRadius = new ArrayList<>();
 	  ArrayList<Taxi> freeTaxisWithinRadius = new ArrayList<>();
-	  double currentRadius = RADIUS;
-	  do {
-		  taxisWithinRadius = RoadModels.findObjectsWithinRadius(
+	  
+	  taxisWithinRadius = RoadModels.findObjectsWithinRadius(
 				  custLocation, 
 				  rm, 
-				  currentRadius, 
+				  radius, 
 				  Taxi.class);
 		  
-		  for (Taxi t: taxisWithinRadius) {
-			  if (t.isFree()) {
-				  freeTaxisWithinRadius.add(t);
-			  }
+	  for (Taxi t: taxisWithinRadius) {
+		  if (t.isFree()) {
+			  freeTaxisWithinRadius.add(t);
 		  }
+	  }
 		  
-		  currentRadius += 0.5 * RADIUS;
-	  } while (freeTaxisWithinRadius.isEmpty());
-	  
-	  int chosenTaxi = rng.nextInt(freeTaxisWithinRadius.size());
-	  
-	  //System.out.println(rm.getPosition(freeTaxisWithinRadius.get(chosenTaxi)) + " -> " + custLocation);
-	  
-	  return freeTaxisWithinRadius.get(chosenTaxi);
+	  if (freeTaxisWithinRadius.isEmpty()) { 
+		  return null; 
+	  } else {
+		  int chosenTaxi = rng.nextInt(freeTaxisWithinRadius.size());
+		  return freeTaxisWithinRadius.get(chosenTaxi);
+	  }
   }
   
   private static Customer generateNewRandomCustomer(RoadModel rm, RandomGenerator rng) {
