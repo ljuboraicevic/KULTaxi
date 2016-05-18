@@ -61,7 +61,7 @@ import com.github.rinde.rinsim.ui.renderers.RoadUserRenderer;
  * -XstartOnFirstThread as a VM argument.
  * @author Rinde van Lon
  */
-public final class TaxiExample {
+public final class SimulationGradientTaxi {
 
 	private static final double RADIUS = 20000;
 	private static final int MAX_TANK = 5000;
@@ -70,11 +70,11 @@ public final class TaxiExample {
 	/******************/
 	
   private static final int NUM_DEPOTS = 3;
-  private static final int NUM_TAXIS = 10;
+  private static final int NUM_TAXIS = 1;
   /**
    * Initial number of customers
    */
-  private static final int NUM_CUSTOMERS = 10;
+  private static final int NUM_CUSTOMERS = 1;
 
   // time in ms
   private static final long SERVICE_DURATION = 60000;
@@ -92,10 +92,10 @@ public final class TaxiExample {
   private static final long TEST_STOP_TIME = 20 * 60 * 1000;
   private static final int TEST_SPEED_UP = 64;
 
-  private TaxiExample() {}
+  private SimulationGradientTaxi() {}
 
   /**
-   * Starts the {@link TaxiExample}.
+   * Starts the {@link SimulationRadioTaxi}.
    * @param args The first option may optionally indicate the end time of the
    *          simulation.
    */
@@ -147,6 +147,8 @@ public final class TaxiExample {
 
     final RoadModel roadModel = simulator.getModelProvider().getModel(RoadModel.class);
     
+    final GradientField field = new GradientField(roadModel);
+    
     //add depots
     for (int i = 0; i < NUM_DEPOTS; i++) {
       simulator.register(new TaxiBase(roadModel.getRandomPosition(rng), DEPOT_CAPACITY));
@@ -160,17 +162,24 @@ public final class TaxiExample {
     //this list is used to assign initial customers to taxis - doesn't take
     //the distance between the taxi and the customer into account; first customer
     //gets the first taxi etc
-    ArrayList<Taxi> initialListOfTaxies = new ArrayList<>();
+    ArrayList<TaxiGradient> initialListOfTaxies = new ArrayList<>();
     // add taxis
     for (int i = 0; i < NUM_TAXIS; i++) {
     	int tankSize = (MAX_TANK / 2) + rng.nextInt(MAX_TANK / 2);
-    	int gas = Math.round(tankSize / 3) + rng.nextInt(tankSize / 2);
-    	Taxi taxi = new Taxi(roadModel.getRandomPosition(rng), TAXI_CAPACITY, tankSize, gas);
+    	int gas      = Math.round(tankSize / 3) + rng.nextInt(tankSize / 2);
+    	
+    	TaxiGradient taxi = new TaxiGradient(
+    			roadModel.getRandomPosition(rng), 
+    			TAXI_CAPACITY, 
+    			tankSize, 
+    			gas, 
+    			field);
+    	
     	simulator.register(taxi);
     	initialListOfTaxies.add(taxi);
     }
     
-    // add customers and assign them to taxis - DOESN'T WORK - HAS TO BE ZERO
+    // add customers and assign them to taxis
     for (int i = 0; i < NUM_CUSTOMERS; i++) {
     	Customer cust = generateNewRandomCustomer(roadModel, rng);
     	simulator.register(cust);
@@ -199,9 +208,10 @@ public final class TaxiExample {
         	//assign them now
         	if (bufferedCustomers.size() > 0) {
         		Customer cust = bufferedCustomers.get(0);
-        		Taxi taxi = callForTaxi(cust.getPickupLocation(), roadModel, rng, radius);
+        		TaxiGradient taxi = callForTaxi(cust.getPickupLocation(), roadModel, rng, radius);
 	        	if (taxi != null) {
 	        		taxi.assingCustomer(cust);
+	        		System.out.println(roadModel.getRandomPosition(rng));
 	        		bufferedCustomers.remove(0);
 	        		radius = RADIUS;
 	        	}
@@ -222,25 +232,25 @@ public final class TaxiExample {
   
   /**
    * Try to find a free taxi within a given radius. If it fails, another call
-   * will be made, with increased radius from the tick. 
+   * will be made, with increased radius from the tick listener. 
    * 
    * @param custLocation Customers position
    * @param rm
    * @param rng
    * @return First taxi to respond to the broadcast (kind of)
    */
-  private static Taxi callForTaxi(Point custLocation, RoadModel rm, RandomGenerator rng, double radius) {
+  private static TaxiGradient callForTaxi(Point custLocation, RoadModel rm, RandomGenerator rng, double radius) {
 
-	  Collection<Taxi> taxisWithinRadius = new ArrayList<>();
-	  ArrayList<Taxi> freeTaxisWithinRadius = new ArrayList<>();
+	  Collection<TaxiGradient> taxisWithinRadius = new ArrayList<>();
+	  ArrayList<TaxiGradient> freeTaxisWithinRadius = new ArrayList<>();
 	  
 	  taxisWithinRadius = RoadModels.findObjectsWithinRadius(
 				  custLocation, 
 				  rm, 
 				  radius, 
-				  Taxi.class);
+				  TaxiGradient.class);
 		  
-	  for (Taxi t: taxisWithinRadius) {
+	  for (TaxiGradient t: taxisWithinRadius) {
 		  if (t.isFree()) {
 			  freeTaxisWithinRadius.add(t);
 		  }
@@ -279,6 +289,8 @@ public final class TaxiExample {
         .withImageAssociation(
           Taxi.class, "/graphics/flat/taxi-32.png")
         .withImageAssociation(
+                TaxiGradient.class, "/graphics/flat/taxi-32.png")
+        .withImageAssociation(
           Customer.class, "/graphics/flat/person-red-32.png")
         .withImageAssociation(
         	GasStation.class, 
@@ -314,7 +326,7 @@ public final class TaxiExample {
         .getMultiAttributeGraphIO(
           Filters.selfCycleFilter())
         .read(
-          TaxiExample.class.getResourceAsStream(name));
+          SimulationRadioTaxi.class.getResourceAsStream(name));
 
       GRAPH_CACHE.put(name, g);
       return g;
