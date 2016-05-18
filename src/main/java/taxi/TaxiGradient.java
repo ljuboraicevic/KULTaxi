@@ -15,6 +15,9 @@
  */
 package taxi;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+
 import com.github.rinde.rinsim.core.model.pdp.PDPModel;
 import com.github.rinde.rinsim.core.model.pdp.Parcel;
 import com.github.rinde.rinsim.core.model.pdp.Vehicle;
@@ -70,12 +73,23 @@ class TaxiGradient extends Vehicle {
 
     Point position = rm.getPosition(this);
     
-    // if the taxi isn't assigned to a customer go to the nearest taxi base
-    if (!curr.isPresent()) {
+    final boolean inCargo;
+    
+    // is the taxi taken
+    if (curr.isPresent()) { 
+    	inCargo = pm.containerContains(this, curr.get());
+    } else {
+    	inCargo = false;
+    }
+    
+    // if the taxi isn't driving a customer
+    if (!inCargo) {
     	
     	//if the taxi is low on gas, go to the nearest gas station
     	if (lowGas()) {
-    		GasStation closestGasStation = (GasStation) RoadModels.findClosestObject(position, rm, GasStation.class);
+    		GasStation closestGasStation = (GasStation) 
+    				RoadModels.findClosestObject(position, rm, GasStation.class);
+    		
     		rm.moveTo(this, closestGasStation, time);
     		//refill the tank when gas station is reached
     		if (rm.equalPosition(this, closestGasStation)) {
@@ -83,18 +97,75 @@ class TaxiGradient extends Vehicle {
     			System.out.println("refilled");
     		}
     	}
-    	// if gas isn't low
+    	
+    	//if the taxi is in one of the taxibases, don't consume gas
+    	else if (position.equals(rm.getPosition(RoadModels.findClosestObject(position, rm, TaxiBase.class)))) {
+    		//if taxi is at the taxi base -> add one, to counter balance the 
+    		//gas-- at the end of the method; this is NOT refilling, just
+    		//keeping the amount of gas the same
+    		gas++;
+    	}
+    	
+    	//at this point gas isn't low and taxi isn't in a taxi base
     	else {
-	    	TaxiBase closestBase = (TaxiBase) RoadModels.findClosestObject(position, rm, TaxiBase.class);
-	    	if (!position.equals(rm.getPosition(closestBase))) {
-	    		rm.moveTo(this, closestBase, time);
-	    	} else {
+    		//FOLLOW THE GRADIENT FIELD
+	    	Point approximateDirection = field.getApproximateDirection();
+	        rm.moveTo(this, approximateDirection, time);
+	        
+	        //check if the taxi has reached a customer
+	        ArrayList<Parcel> potentialCusts = 
+	        		new ArrayList<>((HashSet<Parcel>) rm.getObjectsAt(this, Parcel.class));
+	        
+	        if (!potentialCusts.isEmpty()) {
+	          // pickup customer
+	          pm.pickup(this, potentialCusts.get(0), time);
+	          curr = Optional.fromNullable(potentialCusts.get(0));
+	        }
+    	}
+    }
+    // if there is a customer currently in the taxi
+    else {
+    	//go to its destination using the shortest path (not fields)
+    	rm.moveTo(this, curr.get().getDeliveryLocation(), time);
+    	// if we're at the destination
+    	if (position.equals(curr.get().getDeliveryLocation())) {
+    		// drop off passengers
+    		pm.deliver(this, curr.get(), time);
+    		curr = Optional.absent();
+    	}
+    }
+    
+    /* OLD CODE
+    
+    // if the taxi isn't assigned to a customer go to the nearest taxi base
+    if (!curr.isPresent()) {
+    	
+    	//if the taxi is low on gas, go to the nearest gas station
+    	if (lowGas()) {
+    		GasStation closestGasStation = (GasStation) 
+    				RoadModels.findClosestObject(position, rm, GasStation.class);
+    		
+    		rm.moveTo(this, closestGasStation, time);
+    		//refill the tank when gas station is reached
+    		if (rm.equalPosition(this, closestGasStation)) {
+    			gas = tankSize;
+    			System.out.println("refilled");
+    		}
+    	}
+    	//this part is replaced by taxibases' field
+    	
+    	// if gas isn't low
+    	//else {
+	    	//TaxiBase closestBase = (TaxiBase) RoadModels.findClosestObject(position, rm, TaxiBase.class);
+	    	//if (!position.equals(rm.getPosition(closestBase))) {
+	    		//rm.moveTo(this, closestBase, time);
+	    	//} else {
 	    		//if taxi is at the taxi base -> add one, to counter balance the 
 	    		//gas-- at the end of the method; this is NOT refilling, just
 	    		//keeping the amount of gas the same
-	    		gas++;
-	    	}
-    	}
+	    		//gas++;
+	    	//}
+    	//}
     }
     // if it is assigned
     if (curr.isPresent()) {
@@ -112,29 +183,35 @@ class TaxiGradient extends Vehicle {
           pm.deliver(this, curr.get(), time);
           curr = Optional.absent();
         }
-      } else {
-        // it is still available, go there as fast as possible
-    	  //FOLLOW THE GRADIENT FIELD
-        rm.moveTo(this, curr.get(), time);
-    	  //rm.moveTo(this, new Point(3343000,2.4), time);
-        if (rm.equalPosition(this, curr.get())) {
+      }
+      // if there is no customer in the taxi
+      else {
+    	//FOLLOW THE GRADIENT FIELD
+    	Point approximateDirection = field.getApproximateDirection();
+        rm.moveTo(this, approximateDirection, time);
+        
+        //check if there's a customer at current location
+        ArrayList<Customer> potentialCusts = 
+        		new ArrayList<>((HashSet<Customer>) rm.getObjectsAt(this, Customer.class));
+        
+        if (!potentialCusts.isEmpty()) {
           // pickup customer
-          pm.pickup(this, curr.get(), time);
+          pm.pickup(this, potentialCusts.get(0), time);
         }
       }
     }
+    
+     */
     
     //reduce amount of gas
     gas--;
   }
   
-  public void assingCustomer(Parcel customer) {
-	  curr = Optional.fromNullable(customer);
-  }
+
   
-  public boolean isFree() {
+  /*public boolean isFree() {
 	  return !curr.isPresent() && !lowGas();
-  }
+  }*/
 
   /**
    * Checks if gas level is below 20%.

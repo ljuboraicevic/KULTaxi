@@ -20,11 +20,7 @@ import static com.google.common.collect.Maps.newHashMap;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -34,13 +30,9 @@ import org.eclipse.swt.widgets.Monitor;
 
 import com.github.rinde.rinsim.core.Simulator;
 import com.github.rinde.rinsim.core.model.pdp.DefaultPDPModel;
-import com.github.rinde.rinsim.core.model.pdp.Depot;
-import com.github.rinde.rinsim.core.model.pdp.PDPModel;
 import com.github.rinde.rinsim.core.model.pdp.Parcel;
-import com.github.rinde.rinsim.core.model.pdp.ParcelDTO;
 import com.github.rinde.rinsim.core.model.road.RoadModel;
 import com.github.rinde.rinsim.core.model.road.RoadModelBuilders;
-import com.github.rinde.rinsim.core.model.road.RoadModels;
 import com.github.rinde.rinsim.core.model.time.TickListener;
 import com.github.rinde.rinsim.core.model.time.TimeLapse;
 import com.github.rinde.rinsim.event.Listener;
@@ -63,7 +55,6 @@ import com.github.rinde.rinsim.ui.renderers.RoadUserRenderer;
  */
 public final class SimulationGradientTaxi {
 
-	private static final double RADIUS = 20000;
 	private static final int MAX_TANK = 5000;
 	private static final int NUM_GAS_STATIONS = 3;
 	
@@ -147,7 +138,7 @@ public final class SimulationGradientTaxi {
 
     final RoadModel roadModel = simulator.getModelProvider().getModel(RoadModel.class);
     
-    final GradientField field = new GradientField(roadModel);
+    final GradientField field = new GradientField(roadModel, rng);
     
     //add depots
     for (int i = 0; i < NUM_DEPOTS; i++) {
@@ -183,12 +174,10 @@ public final class SimulationGradientTaxi {
     for (int i = 0; i < NUM_CUSTOMERS; i++) {
     	Customer cust = generateNewRandomCustomer(roadModel, rng);
     	simulator.register(cust);
-    	initialListOfTaxies.get(i).assingCustomer(cust);
     }
     
     simulator.addTickListener(new TickListener() {
     	ArrayList<Customer> bufferedCustomers = new ArrayList<>();
-    	double radius = RADIUS;
     	
       @Override
       public void tick(TimeLapse time) {
@@ -197,26 +186,10 @@ public final class SimulationGradientTaxi {
           simulator.stop();
         } 
         // if we still have time, roll the dice and maybe add a new customer
-        else {
-        	if (rng.nextDouble() < NEW_CUSTOMER_PROB) {
-        		Customer cust = generateNewRandomCustomer(roadModel, rng);
-	        	bufferedCustomers.add(cust);
-	        	simulator.register(cust);
-        	}
-        	
-        	//if there are some customers that haven't been assigned to a taxi
-        	//assign them now
-        	if (bufferedCustomers.size() > 0) {
-        		Customer cust = bufferedCustomers.get(0);
-        		TaxiGradient taxi = callForTaxi(cust.getPickupLocation(), roadModel, rng, radius);
-	        	if (taxi != null) {
-	        		taxi.assingCustomer(cust);
-	        		System.out.println(roadModel.getRandomPosition(rng));
-	        		bufferedCustomers.remove(0);
-	        		radius = RADIUS;
-	        	}
-	        	radius += 0.5 * RADIUS;
-        	}
+        else if (rng.nextDouble() < NEW_CUSTOMER_PROB) {
+       		Customer cust = generateNewRandomCustomer(roadModel, rng);
+        	bufferedCustomers.add(cust);
+        	simulator.register(cust);
         }
       }
 
@@ -228,40 +201,6 @@ public final class SimulationGradientTaxi {
     simulator.start();
 
     return simulator;
-  }
-  
-  /**
-   * Try to find a free taxi within a given radius. If it fails, another call
-   * will be made, with increased radius from the tick listener. 
-   * 
-   * @param custLocation Customers position
-   * @param rm
-   * @param rng
-   * @return First taxi to respond to the broadcast (kind of)
-   */
-  private static TaxiGradient callForTaxi(Point custLocation, RoadModel rm, RandomGenerator rng, double radius) {
-
-	  Collection<TaxiGradient> taxisWithinRadius = new ArrayList<>();
-	  ArrayList<TaxiGradient> freeTaxisWithinRadius = new ArrayList<>();
-	  
-	  taxisWithinRadius = RoadModels.findObjectsWithinRadius(
-				  custLocation, 
-				  rm, 
-				  radius, 
-				  TaxiGradient.class);
-		  
-	  for (TaxiGradient t: taxisWithinRadius) {
-		  if (t.isFree()) {
-			  freeTaxisWithinRadius.add(t);
-		  }
-	  }
-		  
-	  if (freeTaxisWithinRadius.isEmpty()) { 
-		  return null; 
-	  } else {
-		  int chosenTaxi = rng.nextInt(freeTaxisWithinRadius.size());
-		  return freeTaxisWithinRadius.get(chosenTaxi);
-	  }
   }
   
   private static Customer generateNewRandomCustomer(RoadModel rm, RandomGenerator rng) {
