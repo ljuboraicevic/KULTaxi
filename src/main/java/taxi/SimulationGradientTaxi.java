@@ -72,7 +72,7 @@ public final class SimulationGradientTaxi {
 	
 	/******************/
 	
-  private static final int NUM_DEPOTS = 0;
+  private static final int NUM_DEPOTS = 1;
   private static final int NUM_TAXIS = 1;
   /**
    * Initial number of customers

@@ -39,6 +39,9 @@ import com.google.common.base.Optional;
  */
 class TaxiGradient extends Vehicle {
   private static final double SPEED = 5000d;
+  /**
+   * Parcel that is currently being delivered.
+   */
   private Optional<Parcel> curr;
   HashMap<String, ArrayList<Point>> graph;
   HashMap<Point, Integer> reverseNodes;
@@ -51,10 +54,26 @@ class TaxiGradient extends Vehicle {
    */
   private int gas;
   private GradientField field;
-  private long skip;
-  private ArrayList<Point> approximateDirection;
+  /**
+   * Ordered list of preferences for the next node-destination
+   */
+  private Point approximateDirection;
+  /**
+   * sometimes rinsim skips a tick or something, so we need
+   * to keep track of which node was last visited and use that as our
+   * approximate current position
+   */
+  public Point lastNode;
 
-  TaxiGradient(Point startPosition, int capacity, int tankSize, int gas, GradientField field, HashMap<String, ArrayList<Point>> graph, HashMap<Point, Integer> reverseNodes) {
+  TaxiGradient(
+		  Point startPosition, 
+		  int capacity, 
+		  int tankSize, 
+		  int gas, 
+		  GradientField field, 
+		  HashMap<String, ArrayList<Point>> graph, 
+		  HashMap<Point, Integer> reverseNodes) {
+	  
     super(VehicleDTO.builder()
       .capacity(capacity)
       .startPosition(startPosition)
@@ -64,10 +83,10 @@ class TaxiGradient extends Vehicle {
     this.tankSize = tankSize;
     this.gas = gas;
     this.field = field;
-    this.skip = 0;
     this.approximateDirection = null;
     this.graph = graph;
     this.reverseNodes = reverseNodes;
+    this.lastNode = startPosition;
   }
 
   @Override
@@ -82,133 +101,30 @@ class TaxiGradient extends Vehicle {
 
     //position at this tick
     Point position = rm.getPosition(this);
-    
-    final boolean inCargo;
-    
-    // is the taxi taken
-    if (curr.isPresent()) { 
-    	inCargo = pm.containerContains(this, curr.get());
-    } else {
-    	inCargo = false;
+
+    //sometimes rinsim skips a tick or something, so we need
+	//to keep track of which node was last visited and use that as our
+	//approximate current position
+    if (graph.containsKey(position.toString())) {
+    	lastNode = position;
+    	
+    	approximateDirection = field.getApproximateDirection(this);
+    	
+    	//code below is used for printing
+    	String strPos;
+		if (reverseNodes.containsKey(position)) {
+			strPos = reverseNodes.get(position).toString();
+		} else {
+			strPos = position.toString();
+		}
+		System.out.println("Moving from " 
+				+ strPos 
+				+ " to " 
+				+ reverseNodes.get(approximateDirection));
+		System.out.println(" ");
     }
     
     // if the taxi isn't driving a customer
-    if (!inCargo) {
-    	
-    	//if the taxi is low on gas, go to the nearest gas station
-    	/*if (lowGas()) {
-    		GasStation closestGasStation = (GasStation) 
-    				RoadModels.findClosestObject(position, rm, GasStation.class);
-    		
-    		rm.moveTo(this, closestGasStation, time);
-    		//refill the tank when gas station is reached
-    		if (rm.equalPosition(this, closestGasStation)) {
-    			gas = tankSize;
-    			System.out.println("refilled");
-    		}
-    	}*/
-    	
-    	//if the taxi is in one of the taxibases, don't consume gas
-    	/*else if (position.equals(rm.getPosition(RoadModels.findClosestObject(position, rm, TaxiBase.class)))) {
-    		//if taxi is at the taxi base -> add one, to counter balance the 
-    		//gas-- at the end of the method; this is NOT refilling, just
-    		//keeping the amount of gas the same
-    		gas++;
-    	}*/
-    	
-    	//at this point gas isn't low and taxi isn't in a taxi base
-    	//else 
-    	{
-    		//FOLLOW THE GRADIENT FIELD
-    		if (graph.containsKey(position.toString())) {
-		    	approximateDirection = field.getApproximateDirection(this);
-		    	String strPos;
-    			if (reverseNodes.containsKey(position)) {
-    				strPos = reverseNodes.get(position).toString();
-    			} else {
-    				strPos = position.toString();
-    			}
-    			System.out.println("Moving from " + strPos + " to " + reverseNodes.get(approximateDirection.get(0)));
-    			System.out.println(" ");
-    		}
-    		/*System.out.println("From: " + position + " to " + approximateDirection);
-    		System.out.println("      " + rm.getPosition(this));
-    		System.out.println("      ");*/
-    		
-    		/*if (approximateDirection.x == 3293444.322625064) {
-    			System.out.println("");
-    		}*/
-    		
-    		//boolean success = false;
-    		
-    		//while (!success) {
-	    	//	try {
-	    			//System.out.println("Move to " + rm.getPosition(this) + " from " + approximateDirection.get(0));
-	    			MoveProgress mp = rm.moveTo(this, approximateDirection.get(0), time);
-	    			
-	    			
-	    			
-	    			//String distance = mp.distance().toString();
-	    			//System.out.println(distance);
-	    			//if (!distance.equals("0.0 km")) {
-	    	//			success = true;
-	    			/*} else {
-	    				success = false;
-	    				System.out.println("Deleted " + approximateDirection.get(0));
-		    			System.out.println("From " + position + " to " + approximateDirection.get(0));
-		    			System.out.println(" ");
-		    			approximateDirection.remove(0);
-	    			}*/
-	    	/*	} catch (Exception e) {
-	    			System.out.println("-----");
-	    			System.out.println("SKIPPED " + reverseNodes.get(approximateDirection.get(0)));
-	    			System.out.println("From " + reverseNodes.get(position) + " to " + reverseNodes.get(approximateDirection.get(0)));
-	    			System.out.println("Rerouting to " + reverseNodes.get(approximateDirection.get(1)));
-	    			System.out.println("-----");
-	    			
-	    			//Random rand = new Random();
-	    			//int  n = rand.nextInt(approximateDirection.size() - 1) + 1;
-	    			//Point reroute = approximateDirection.get(n);
-	    			//MoveProgress mp = rm.moveTo(this, reroute, time);
-	    			
-	    			approximateDirection.remove(0);
-	    		}
-    		}*/
-    		
-	        
-	        //check if the taxi has reached a customer
-	        ArrayList<Parcel> potentialCusts = 
-	        		new ArrayList<>((HashSet<Parcel>) rm.getObjectsAt(this, Parcel.class));
-	        
-	        if (!potentialCusts.isEmpty()) {
-	          // pickup customer
-	          pm.pickup(this, potentialCusts.get(0), time);
-	          curr = Optional.fromNullable(potentialCusts.get(0));
-	          field.customersInTransport.put((Customer)curr.get(), true);
-	          field.calculateCustomerPositions();
-	          System.out.println("Customer picked up at " + reverseNodes.get(position) + " : " + position.toString());
-	        }
-    	}
-    }
-    // if there is a customer currently in the taxi
-    else {
-    	//go to its destination using the shortest path (not fields)
-    	rm.moveTo(this, curr.get().getDeliveryLocation(), time);
-    	// if we're at the destination
-    	if (position.equals(curr.get().getDeliveryLocation())) {
-    		// drop off passengers
-    		System.out.println("Customer delivered at " + reverseNodes.get(curr.get().getDeliveryLocation()));
-    		pm.deliver(this, curr.get(), time);
-    		field.customersInTransport.remove((Customer)curr.get());
-    		field.calculateCustomerPositions();
-    		curr = Optional.absent();
-    		
-    	}
-    }
-    
-    /* OLD CODE
-    
-    // if the taxi isn't assigned to a customer go to the nearest taxi base
     if (!curr.isPresent()) {
     	
     	//if the taxi is low on gas, go to the nearest gas station
@@ -222,61 +138,82 @@ class TaxiGradient extends Vehicle {
     			gas = tankSize;
     			System.out.println("refilled");
     		}
-    	}
-    	//this part is replaced by taxibases' field
+    	} 
     	
-    	// if gas isn't low
-    	//else {
-	    	//TaxiBase closestBase = (TaxiBase) RoadModels.findClosestObject(position, rm, TaxiBase.class);
-	    	//if (!position.equals(rm.getPosition(closestBase))) {
-	    		//rm.moveTo(this, closestBase, time);
-	    	//} else {
-	    		//if taxi is at the taxi base -> add one, to counter balance the 
-	    		//gas-- at the end of the method; this is NOT refilling, just
-	    		//keeping the amount of gas the same
-	    		//gas++;
-	    	//}
-    	//}
+    	//if the taxi is in one of the taxibases, don't consume gas
+    	/*else if (position.equals(rm.getPosition(RoadModels.findClosestObject(position, rm, TaxiBase.class)))) {
+    		//if taxi is at the taxi base -> add one, to counter balance the 
+    		//gas-- at the end of the method; this is NOT refilling, just
+    		//keeping the amount of gas the same
+    		gas++;
+    	}*/
+    	
+    	//at this point gas isn't low and taxi isn't in a taxi base
+    	else 
+    	{
+    		//if taxi is at one of the nodes, recalculate choice of direction
+    		//based on gradient field
+    		/*if (graph.containsKey(position.toString())) {
+		    	approximateDirection = field.getApproximateDirection(this);
+		    	//below code is used for printing
+		    	String strPos;
+    			if (reverseNodes.containsKey(position)) {
+    				strPos = reverseNodes.get(position).toString();
+    			} else {
+    				strPos = position.toString();
+    			}
+    			System.out.println("Moving from " 
+    					+ strPos 
+    					+ " to " 
+    					+ reverseNodes.get(approximateDirection.get(0)));
+    			System.out.println(" ");
+    		}*/
+
+    		//follow the gradient field
+	    	MoveProgress mp = rm.moveTo(this, approximateDirection, time);
+	    			
+	        //check if the taxi has reached a customer
+	        ArrayList<Parcel> potentialCusts = 
+	        		new ArrayList<>((HashSet<Parcel>) rm.getObjectsAt(this, Parcel.class));
+	        
+	        if (!potentialCusts.isEmpty()) {
+	        	// pickup customer
+	        	pm.pickup(this, potentialCusts.get(0), time);
+
+	        	System.out.println("Customer picked up at " 
+	            		+ reverseNodes.get(position) 
+	            		+ " : " 
+	            		+ position.toString());
+	        	
+	        	//THIS CODE IS VERY IMPORTAND FOR GRADIENT FIELD BOOKKEEPING, SHOULD
+	    		//BE USED IN ANY PLACE WHERE CUSTOMER IS DELIVERED
+	            curr = Optional.fromNullable(potentialCusts.get(0));
+	            field.customersInTransport.put((Customer)curr.get(), true);
+	            field.calculateCustomerPositions();
+	        }
+    	}
     }
-    // if it is assigned
-    if (curr.isPresent()) {
-      final boolean inCargo = pm.containerContains(this, curr.get());
-      // sanity check: if it is not in our cargo AND it is also not on the
-      // RoadModel, we cannot go to curr anymore.
-      if (!inCargo && !rm.containsObject(curr.get())) {
-        curr = Optional.absent();
-      } else if (inCargo) {
-        // if it is in cargo, go to its destination
-        rm.moveTo(this, curr.get().getDeliveryLocation(), time);
-        // if we're at the destination
-        if (position.equals(curr.get().getDeliveryLocation())) {
-          // drop off passengers
-          pm.deliver(this, curr.get(), time);
-          curr = Optional.absent();
-        }
-      }
-      // if there is no customer in the taxi
-      else {
-    	//FOLLOW THE GRADIENT FIELD
-    	Point approximateDirection = field.getApproximateDirection();
-        rm.moveTo(this, approximateDirection, time);
-        
-        //check if there's a customer at current location
-        ArrayList<Customer> potentialCusts = 
-        		new ArrayList<>((HashSet<Customer>) rm.getObjectsAt(this, Customer.class));
-        
-        if (!potentialCusts.isEmpty()) {
-          // pickup customer
-          pm.pickup(this, potentialCusts.get(0), time);
-        }
-      }
+    // if there is a customer currently in the taxi
+    else {
+    	//go to its destination using the shortest path (not gradient field)
+    	rm.moveTo(this, curr.get().getDeliveryLocation(), time);
+    	// if we're at the destination
+    	if (position.equals(curr.get().getDeliveryLocation())) {
+    		// drop off passengers
+    		System.out.println("Customer delivered at " 
+    				+ reverseNodes.get(curr.get().getDeliveryLocation()));
+    		
+    		pm.deliver(this, curr.get(), time);
+    		//THIS CODE IS VERY IMPORTAND FOR GRADIENT FIELD BOOKKEEPING, SHOULD
+    		//BE USED IN ANY PLACE WHERE CUSTOMER IS DELIVERED
+    		field.customersInTransport.remove((Customer)curr.get());
+    		field.calculateCustomerPositions();
+    		curr = Optional.absent();
+    	}
     }
-    
-     */
     
     //reduce amount of gas
     gas--;
-    skip++;
   }
   
   /**

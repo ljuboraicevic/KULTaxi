@@ -56,23 +56,17 @@ public class GradientField {
 		customersInTransport = new HashMap<>();
 	}
 	
-	public ArrayList<Point> getApproximateDirection(RoadUser vehicle) {
+	public Point getApproximateDirection(TaxiGradient vehicle) {
 		ArrayList<Point> samples = samplePoints(vehicle);
-		ArrayList<Point> result = new ArrayList<>();
-		
-		//for (int iCount = 0; iCount <= samples.size(); iCount++) {
-			Point sp = getStrongestPoint(samples, roadModel.getPosition(vehicle));
-			result.add(sp);
-			//samples.remove(sp);
-		//}
-		
-		return result; 
-		//return roadModel.getRandomPosition(rng);
+		return getStrongestPoint(samples, roadModel.getPosition(vehicle));
 	}
 	
-	private ArrayList<Point> samplePoints(RoadUser vehicle) {
-		//take adjacent nodes from the graph
-		ArrayList<Point> initial = new ArrayList<>(graph.get(roadModel.getPosition(vehicle).toString()));
+	private ArrayList<Point> samplePoints(TaxiGradient vehicle) {
+		//take adjacent nodes from the graph from the last node that has been
+		//visited (since sometimes rinsim skips a tick or something, so we need
+		//to keep track of which node was last visited and use that as our
+		//approximate current position
+		ArrayList<Point> initial = new ArrayList<>(graph.get(vehicle.lastNode.toString()));
 		return initial;
 	}
 	
