@@ -7,32 +7,60 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.math3.random.RandomGenerator;
 
-import com.github.rinde.rinsim.core.model.pdp.PDPModel;
 import com.github.rinde.rinsim.core.model.road.RoadModel;
 import com.github.rinde.rinsim.core.model.road.RoadModels;
-import com.github.rinde.rinsim.core.model.road.RoadUser;
 import com.github.rinde.rinsim.geom.Point;
 
 public class GradientField {
 
 	final RandomGenerator rng;
 	final private RoadModel roadModel;
+	
+	/**
+	 * Signal strength drops with 1/(distance^signalDrop)   
+	 */
 	final double signalDrop;
+	
+	/**
+	 * Ratio of taxi repulsiveness versus customer attraction
+	 */
 	final double taxiVSCustomer;
 	
+	/**
+	 * Current list of customer positions. It is updated with 
+	 * calculateCustomerPositions method (this method must be called after every
+	 * customer pickup and drop off)
+	 */
 	ArrayList<Point> customerPositions;
 	
+	/**
+	 * Map. Is used since information about adjacent nodes on the map is needed.
+	 */
 	public final HashMap<String, ArrayList<Point>> graph = new HashMap<>();
+	
+	/**
+	 * List of all nodes loaded from the file (their n# and position)
+	 */
 	public final HashMap<Integer, Point> nodes = new HashMap<>();
+	
+	/**
+	 * Reverse of nodes. Position is key and n# is value
+	 */
 	public final HashMap<Point, Integer> reverseNodes = new HashMap<>();
 	
+	/**
+	 * List of customers currently being transported. Is used to ignore
+	 * customers that are being transported when calculating the gradient. Has
+	 * to be updated on every customer pickup and drop off.
+	 * 
+	 * TODO This can probably be replaced with ParcelState
+	 */
 	public HashMap<Customer, Boolean> customersInTransport;
 	
 	public GradientField(RoadModel roadModel, RandomGenerator rng, double signalDrop, double taxiVSCustomer) {
@@ -44,18 +72,39 @@ public class GradientField {
 		customersInTransport = new HashMap<>();
 	}
 	
+	/**
+	 * Checks vehicle's local environment and returns the place with the 
+	 * strongest gradient field.
+	 * 
+	 * @param vehicle
+	 * @return Point with the strongest gradient and its strength
+	 */
 	public GradientFieldPoint getApproximateDirection(TaxiGradient vehicle) {
 		ArrayList<Point> samples = samplePoints(vehicle);
 		return getStrongestPoint(samples, roadModel.getPosition(vehicle));
 	}
 	
+	/**
+	 * Returns adjacent nodes in the graph from the last node that has been 
+	 * visited (see javadoc for lastNode on why is current location not being
+	 * used)
+	 * 
+	 * @param vehicle
+	 * @return
+	 */
 	private ArrayList<Point> samplePoints(TaxiGradient vehicle) {
-		//take adjacent nodes from the graph from the last node that has been
-		//visited (see javadoc for lastNode)
 		ArrayList<Point> initial = new ArrayList<>(graph.get(vehicle.lastNode.toString()));
 		return initial;
 	}
 	
+	/**
+	 * Takes samples (adjacent nodes) and finds the one that has the strongest
+	 * gradient field.
+	 * 
+	 * @param samples
+	 * @param a
+	 * @return
+	 */
 	private GradientFieldPoint getStrongestPoint(ArrayList<Point> samples, Point a) {
 		double max = Double.MIN_VALUE;
 		Point maxPoint = samples.get(0);
@@ -64,7 +113,6 @@ public class GradientField {
 		
 		for (Point p: samples) {
 			double strenght = calculateFieldStrengthAtPoint(p);
-			//System.out.println(reverseNodes.get(p) + ": " + strenght);
 			if (strenght > max) {
 				max = strenght;
 				maxPoint = p;
@@ -74,6 +122,16 @@ public class GradientField {
 		return new GradientFieldPoint(maxPoint, max);
 	}
 	
+	/**
+	 * Calculates gradient field strength at a given point.
+	 * This is done by taking distances from all pending customers, doing a 
+	 * 1 / distance^signalDrop and summing it up. Additionally, the same thing
+	 * is done with other active taxi distances, but this is subtracted from the
+	 * sum.
+	 * 
+	 * @param p
+	 * @return
+	 */
 	private double calculateFieldStrengthAtPoint(Point p) {
 		double sum = 0;
 		
@@ -82,16 +140,19 @@ public class GradientField {
 			sum += 1 / Math.pow(dist, signalDrop);
 		}
 		
-		ArrayList<TaxiGradient> allTaxis = calculateTaxiPositions();
+		ArrayList<Point> taxiPositions = calculateTaxiPositions();
 		
-		for (TaxiGradient tg: allTaxis) {
-			double dist = Point.distance(roadModel.getPosition(tg), p);
+		for (Point tp: taxiPositions) {
+			double dist = Point.distance(tp, p);
 			sum -= (1 / Math.pow(dist, signalDrop)) * taxiVSCustomer;
 		}
 		
 		return sum;
 	}
 	
+	/**
+	 * Updates current locations of all customers that are waiting for service.
+	 */
 	public void calculateCustomerPositions() {
 		customerPositions = new ArrayList<>();
 		ArrayList<Customer> allCustomers = 
@@ -105,26 +166,43 @@ public class GradientField {
 		}
 	}
 	
-	private ArrayList<TaxiGradient> calculateTaxiPositions() {
-		ArrayList<TaxiGradient> taxiPositions = new ArrayList<>();
+	/**
+	 * Calculates current locations of all active taxis.
+	 * (Active meaning not at a TaxiBase or currently driving a customer
+	 * 
+	 * @return List of all active taxis
+	 */
+	private ArrayList<Point> calculateTaxiPositions() {
+		ArrayList<Point> taxiPositions = new ArrayList<>();
 		ArrayList<TaxiGradient> allTaxis = 
 				new ArrayList<>(roadModel.getObjectsOfType(TaxiGradient.class));
 		
 		for (TaxiGradient t: allTaxis) {
-			//find closest taxibase
+			//find closest TaxiBase
 			Point position = roadModel.getPosition(t);
 			Point taxiBasePosition = roadModel.getPosition(RoadModels.findClosestObject(position, roadModel, TaxiBase.class));
 			boolean atTheBase = position.equals(taxiBasePosition);
 			
 			//if taxi isn't transporting somebody and if it's not at the base
 			if (!t.isDrivingACustomer() && !atTheBase) {
-				taxiPositions.add(t);
+				taxiPositions.add(roadModel.getPosition(t));
 			}
 		}
 		
 		return taxiPositions;
 	}
 	
+	/**
+	 * Loads a .dot file to a graph using some extremely unsophisticated regex.
+	 * 
+	 * TODO fix regex so that there is no need to convert " to ' and use a 
+	 * separate file
+	 * TODO automatically determine the lastNode
+	 * 
+	 * @param MAP_FILE Path to the file
+	 * @param lastNode n# of the last node in the file
+	 * @throws IOException
+	 */
 	public void loadGraphNew(String MAP_FILE, int lastNode) throws IOException {
 		  Path path = Paths.get(MAP_FILE + "apos");
 		  List<String> lines = Files.readAllLines(path, Charset.forName("ISO-8859-1"));
