@@ -41,9 +41,7 @@ public class GradientField {
 			int custWaitingAmplification,
 			double signalDrop,
 			double taxiBaseVSCustomer,
-			double taxiVSCustomer//,
-			//HashMap<String, ArrayList<Point>> graph,
-			//HashMap<Point, Integer> reverseNodes
+			double taxiVSCustomer
 			) {
 		
 		this.roadModel = roadModel;

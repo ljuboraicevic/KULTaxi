@@ -16,7 +16,6 @@
 package taxi;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 
 import com.github.rinde.rinsim.core.model.pdp.PDPModel;
@@ -41,8 +40,6 @@ class TaxiGradient extends Vehicle {
    * Parcel that is currently being delivered.
    */
   private Optional<Parcel> curr;
-  HashMap<String, ArrayList<Point>> graph;
-  HashMap<Point, Integer> reverseNodes;
   /**
    * Different taxis can have different gas tank sizes.
    */
@@ -63,15 +60,7 @@ class TaxiGradient extends Vehicle {
    */
   public Point lastNode;
 
-  TaxiGradient(
-		  Point startPosition, 
-		  int capacity, 
-		  int tankSize, 
-		  int gas, 
-		  GradientField field, 
-		  HashMap<String, ArrayList<Point>> graph, 
-		  HashMap<Point, Integer> reverseNodes) {
-	  
+  TaxiGradient(Point startPosition, int capacity, int tankSize, int gas, GradientField field) {
     super(VehicleDTO.builder()
       .capacity(capacity)
       .startPosition(startPosition)
@@ -82,8 +71,6 @@ class TaxiGradient extends Vehicle {
     this.gas = gas;
     this.field = field;
     this.approximateDirection = null;
-    this.graph = graph;
-    this.reverseNodes = reverseNodes;
     this.lastNode = startPosition;
   }
 
@@ -103,7 +90,7 @@ class TaxiGradient extends Vehicle {
     //sometimes rinsim skips a tick or something, so we need
 	//to keep track of which node was last visited and use that as our
 	//approximate current position
-    if (graph.containsKey(position.toString())) {
+    if (field.graph.containsKey(position.toString())) {
     	lastNode = position;
     	
     	approximateDirection = field.getApproximateDirection(this);
@@ -165,7 +152,7 @@ class TaxiGradient extends Vehicle {
 	        	pm.pickup(this, potentialCusts.get(0), time);
 
 	        	System.out.println("Customer picked up at " 
-	            		+ reverseNodes.get(position) 
+	            		+ field.reverseNodes.get(position) 
 	            		+ " : " 
 	            		+ position.toString());
 	        	
@@ -185,7 +172,7 @@ class TaxiGradient extends Vehicle {
     	if (position.equals(curr.get().getDeliveryLocation())) {
     		// drop off passengers
     		System.out.println("Customer delivered at " 
-    				+ reverseNodes.get(curr.get().getDeliveryLocation()));
+    				+ field.reverseNodes.get(curr.get().getDeliveryLocation()));
     		
     		pm.deliver(this, curr.get(), time);
     		//THIS CODE IS VERY IMPORTAND FOR GRADIENT FIELD BOOKKEEPING, SHOULD

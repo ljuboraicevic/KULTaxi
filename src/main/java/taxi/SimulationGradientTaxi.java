@@ -87,13 +87,13 @@ public final class SimulationGradientTaxi {
 
   private static final int SPEED_UP = 4;
   private static final int MAX_CAPACITY = 3;
-  private static final double NEW_CUSTOMER_PROB = .004;
+  private static final double NEW_CUSTOMER_PROB = .001;
 
   //private static final String MAP_FILE = "/home/ljubo/Documents/eclipse-workspace/KULTaxi/maps/heverlee-test-simple.dot";
   private static final String MAP_FILE = "/home/ljubo/Documents/eclipse-workspace/KULTaxi/maps/square.dot";
   private static final Map<String, Graph<MultiAttributeData>> GRAPH_CACHE =
     newHashMap();
-  private static final int lastNode = 8;
+  private static final int lastNode = 7;
 
   private static final long TEST_STOP_TIME = 20 * 60 * 1000;
   private static final int TEST_SPEED_UP = 64;
@@ -153,13 +153,11 @@ public final class SimulationGradientTaxi {
 
     final RoadModel roadModel = simulator.getModelProvider().getModel(RoadModel.class);
     
+    // initialize the gradient field
     field = new GradientField(roadModel, rng, 1, 2, 0.0, 0.0);
     try {
 		field.loadGraphNew(MAP_FILE, lastNode);
-	} catch (IOException e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
-	}
+	} catch (IOException e) { e.printStackTrace(); }
     
     
     //add depots
@@ -178,13 +176,11 @@ public final class SimulationGradientTaxi {
     	int gas      = Math.round(tankSize / 3) + rng.nextInt(tankSize / 2);
     	
     	TaxiGradient taxi = new TaxiGradient(
-    			field.nodes.get(rng.nextInt(4)),
+    			field.nodes.get(rng.nextInt(lastNode + 1)),
     			TAXI_CAPACITY, 
     			tankSize, 
     			gas, 
-    			field,
-    			field.graph,
-    			field.reverseNodes);
+    			field);
     	
     	simulator.register(taxi);
     }
