@@ -57,7 +57,7 @@ class TaxiGradient extends Vehicle {
   /**
    * Ordered list of preferences for the next node-destination
    */
-  private Point approximateDirection;
+  private GradientFieldPoint approximateDirection;
   /**
    * sometimes rinsim skips a tick or something, so we need
    * to keep track of which node was last visited and use that as our
@@ -120,13 +120,12 @@ class TaxiGradient extends Vehicle {
 		System.out.println("Moving from " 
 				+ strPos 
 				+ " to " 
-				+ reverseNodes.get(approximateDirection));
+				+ reverseNodes.get(approximateDirection.point));
 		System.out.println(" ");
     }
     
     // if the taxi isn't driving a customer
     if (!curr.isPresent()) {
-    	
     	//if the taxi is low on gas, go to the nearest gas station
     	if (lowGas()) {
     		GasStation closestGasStation = (GasStation) 
@@ -140,37 +139,24 @@ class TaxiGradient extends Vehicle {
     		}
     	} 
     	
-    	//if the taxi is in one of the taxibases, don't consume gas
-    	/*else if (position.equals(rm.getPosition(RoadModels.findClosestObject(position, rm, TaxiBase.class)))) {
-    		//if taxi is at the taxi base -> add one, to counter balance the 
-    		//gas-- at the end of the method; this is NOT refilling, just
-    		//keeping the amount of gas the same
-    		gas++;
-    	}*/
+    	// if there are no customers, go to the nearest base
+    	else if (approximateDirection.strength <= 0.000000000001) {
+    		TaxiBase closestBase = (TaxiBase) RoadModels.findClosestObject(position, rm, TaxiBase.class);
+	    	if (!position.equals(rm.getPosition(closestBase))) {
+	    		rm.moveTo(this, closestBase, time);
+	    	} else {
+	    		//if taxi is at the taxi base -> add one, to counter balance the 
+	    		//gas-- at the end of the method; this is NOT refilling, just
+	    		//keeping the amount of gas the same
+	    		gas++;
+	    	}
+    	}
     	
-    	//at this point gas isn't low and taxi isn't in a taxi base
+    	//at this point gas isn't low and taxi isn't IN or MOVING TO a taxi base
     	else 
     	{
-    		//if taxi is at one of the nodes, recalculate choice of direction
-    		//based on gradient field
-    		/*if (graph.containsKey(position.toString())) {
-		    	approximateDirection = field.getApproximateDirection(this);
-		    	//below code is used for printing
-		    	String strPos;
-    			if (reverseNodes.containsKey(position)) {
-    				strPos = reverseNodes.get(position).toString();
-    			} else {
-    				strPos = position.toString();
-    			}
-    			System.out.println("Moving from " 
-    					+ strPos 
-    					+ " to " 
-    					+ reverseNodes.get(approximateDirection.get(0)));
-    			System.out.println(" ");
-    		}*/
-
     		//follow the gradient field
-	    	MoveProgress mp = rm.moveTo(this, approximateDirection, time);
+	    	MoveProgress mp = rm.moveTo(this, approximateDirection.point, time);
 	    			
 	        //check if the taxi has reached a customer
 	        ArrayList<Parcel> potentialCusts = 

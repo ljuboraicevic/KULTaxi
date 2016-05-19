@@ -56,7 +56,7 @@ public class GradientField {
 		customersInTransport = new HashMap<>();
 	}
 	
-	public Point getApproximateDirection(TaxiGradient vehicle) {
+	public GradientFieldPoint getApproximateDirection(TaxiGradient vehicle) {
 		ArrayList<Point> samples = samplePoints(vehicle);
 		return getStrongestPoint(samples, roadModel.getPosition(vehicle));
 	}
@@ -70,7 +70,7 @@ public class GradientField {
 		return initial;
 	}
 	
-	private Point getStrongestPoint(ArrayList<Point> samples, Point a) {
+	private GradientFieldPoint getStrongestPoint(ArrayList<Point> samples, Point a) {
 		double max = Double.MIN_VALUE;
 		Point maxPoint = samples.get(0);
 		
@@ -85,7 +85,7 @@ public class GradientField {
 			}
 		}
 		System.out.println("Chosen " + reverseNodes.get(maxPoint));
-		return maxPoint;
+		return new GradientFieldPoint(maxPoint, max);
 	}
 	
 	private double calculateFieldStrengthAtPoint(Point p) {
