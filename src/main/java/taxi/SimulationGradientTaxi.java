@@ -67,17 +67,10 @@ public final class SimulationGradientTaxi {
 	private static final int NUM_GAS_STATIONS = 1;
 	static GradientField field;
 	
-	/*private static final HashMap<Integer, Point> nodes = new HashMap<>();
-	private static final HashMap<Point, Integer> reverseNodes = new HashMap<>();
-	private static final HashMap<String, ArrayList<Point>> newGraph = new HashMap<>();*/
-	
 	/******************/
 	
   private static final int NUM_DEPOTS = 1;
   private static final int NUM_TAXIS = 2;
-  /**
-   * Initial number of customers
-   */
   private static final int NUM_CUSTOMERS = 1;
 
   // time in ms
@@ -89,11 +82,10 @@ public final class SimulationGradientTaxi {
   private static final int MAX_CAPACITY = 3;
   private static final double NEW_CUSTOMER_PROB = .001;
 
-  //private static final String MAP_FILE = "/home/ljubo/Documents/eclipse-workspace/KULTaxi/maps/heverlee-test-simple.dot";
-  private static final String MAP_FILE = "/home/ljubo/Documents/eclipse-workspace/KULTaxi/maps/square.dot";
-  private static final Map<String, Graph<MultiAttributeData>> GRAPH_CACHE =
-    newHashMap();
+  private static final String MAP_FILE = "maps/square.dot";
   private static final int lastNode = 7;
+  
+  private static final Map<String, Graph<MultiAttributeData>> GRAPH_CACHE = newHashMap();
 
   private static final long TEST_STOP_TIME = 20 * 60 * 1000;
   private static final int TEST_SPEED_UP = 64;
@@ -142,7 +134,6 @@ public final class SimulationGradientTaxi {
 
     final View.Builder view = createGui(testing, display, m, list);
 
-    // use map of leuven
     final Simulator simulator = Simulator.builder()
       .addModel(RoadModelBuilders.staticGraph(loadGraph(graphFile)))
       .addModel(DefaultPDPModel.builder())
@@ -154,7 +145,7 @@ public final class SimulationGradientTaxi {
     final RoadModel roadModel = simulator.getModelProvider().getModel(RoadModel.class);
     
     // initialize the gradient field
-    field = new GradientField(roadModel, rng, 1, 2, 0.0, 0.0);
+    field = new GradientField(roadModel, rng, 2, 0.5);
     try {
 		field.loadGraphNew(MAP_FILE, lastNode);
 	} catch (IOException e) { e.printStackTrace(); }
@@ -207,7 +198,8 @@ public final class SimulationGradientTaxi {
        		Customer cust = generateNewRandomCustomer(roadModel, rng);
         	simulator.register(cust);
         	field.calculateCustomerPositions();
-        	System.out.println("NEW CUSTOMER AT " + field.reverseNodes.get(cust.getDeliveryLocation()));
+        	System.out.println("NEW CUSTOMER AT " 
+        			+ field.reverseNodes.get(cust.getDeliveryLocation()));
         }
       }
 
@@ -215,9 +207,7 @@ public final class SimulationGradientTaxi {
       public void afterTick(TimeLapse timeLapse) {}
     });
     
-    
     simulator.start();
-
     return simulator;
   }
   
@@ -294,6 +284,4 @@ public final class SimulationGradientTaxi {
       throw new IllegalStateException(e);
     }
   }
-  
-  
 }

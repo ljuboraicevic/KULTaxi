@@ -48,17 +48,26 @@ class TaxiGradient extends Vehicle {
    * Amount of gas (time) left.
    */
   private int gas;
+  /**
+   * Gradient field, used for task allocation.
+   */
   private GradientField field;
   /**
    * Ordered list of preferences for the next node-destination
    */
   private GradientFieldPoint approximateDirection;
+  
+  /**
+   * Current position of the taxi
+   */
+  private Point position;
+  
   /**
    * Sometimes rinsim skips a tick or something, so we need
    * to keep track of which node was last visited and use that as our
    * approximate current position
    */
-  public Point lastNode;
+  public Point lastNode;  
 
   TaxiGradient(Point startPosition, int capacity, int tankSize, int gas, GradientField field) {
     super(VehicleDTO.builder()
@@ -71,6 +80,7 @@ class TaxiGradient extends Vehicle {
     this.gas = gas;
     this.field = field;
     this.approximateDirection = null;
+    this.position = startPosition;
     this.lastNode = startPosition;
   }
 
@@ -85,7 +95,7 @@ class TaxiGradient extends Vehicle {
     if (!time.hasTimeLeft()) { return; }
 
     //position at this tick
-    Point position = rm.getPosition(this);
+    position = rm.getPosition(this);
 
     //sometimes rinsim skips a tick or something, so we need
 	//to keep track of which node was last visited and use that as our
@@ -110,7 +120,7 @@ class TaxiGradient extends Vehicle {
     }
     
     // if the taxi isn't driving a customer
-    if (!curr.isPresent()) {
+    if (!isDrivingACustomer()) {
     	//if the taxi is low on gas, go to the nearest gas station
     	if (lowGas()) {
     		GasStation closestGasStation = (GasStation) 
@@ -185,6 +195,14 @@ class TaxiGradient extends Vehicle {
     
     //reduce amount of gas
     gas--;
+  }
+  
+  /**
+   * 
+   * @return Checks if taxi is currently driving a customer
+   */
+  public boolean isDrivingACustomer() {
+	  return curr.isPresent();
   }
   
   /**

@@ -16,6 +16,7 @@ import org.apache.commons.math3.random.RandomGenerator;
 
 import com.github.rinde.rinsim.core.model.pdp.PDPModel;
 import com.github.rinde.rinsim.core.model.road.RoadModel;
+import com.github.rinde.rinsim.core.model.road.RoadModels;
 import com.github.rinde.rinsim.core.model.road.RoadUser;
 import com.github.rinde.rinsim.geom.Point;
 
@@ -23,7 +24,6 @@ public class GradientField {
 
 	final RandomGenerator rng;
 	final private RoadModel roadModel;
-	final int custWaitingAmplification;
 	final double signalDrop;
 	final double taxiVSCustomer;
 	
@@ -35,18 +35,9 @@ public class GradientField {
 	
 	public HashMap<Customer, Boolean> customersInTransport;
 	
-	public GradientField(
-			RoadModel roadModel, 
-			RandomGenerator rng,
-			int custWaitingAmplification,
-			double signalDrop,
-			double taxiBaseVSCustomer,
-			double taxiVSCustomer
-			) {
-		
+	public GradientField(RoadModel roadModel, RandomGenerator rng, double signalDrop, double taxiVSCustomer) {
 		this.roadModel = roadModel;
 		this.rng = rng;
-		this.custWaitingAmplification = custWaitingAmplification;
 		this.signalDrop = signalDrop;
 		this.taxiVSCustomer = taxiVSCustomer;
 		customerPositions = new ArrayList<>();
@@ -120,10 +111,15 @@ public class GradientField {
 				new ArrayList<>(roadModel.getObjectsOfType(TaxiGradient.class));
 		
 		for (TaxiGradient t: allTaxis) {
+			//find closest taxibase
+			Point position = roadModel.getPosition(t);
+			Point taxiBasePosition = roadModel.getPosition(RoadModels.findClosestObject(position, roadModel, TaxiBase.class));
+			boolean atTheBase = position.equals(taxiBasePosition);
+			
 			//if taxi isn't transporting somebody and if it's not at the base
-			/*if (!customersInTransport.containsKey(c)) {
-				customerPositions.add(roadModel.getPosition(c));
-			}*/
+			if (!t.isDrivingACustomer() && !atTheBase) {
+				taxiPositions.add(t);
+			}
 		}
 		
 		return taxiPositions;
