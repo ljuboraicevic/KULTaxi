@@ -65,15 +65,16 @@ public final class SimulationGradientTaxi {
 
 	private static final int MAX_TANK = 5000;
 	private static final int NUM_GAS_STATIONS = 1;
+	static GradientField field;
 	
-	private static final HashMap<Integer, Point> nodes = new HashMap<>();
+	/*private static final HashMap<Integer, Point> nodes = new HashMap<>();
 	private static final HashMap<Point, Integer> reverseNodes = new HashMap<>();
-	private static final HashMap<String, ArrayList<Point>> newGraph = new HashMap<>();
+	private static final HashMap<String, ArrayList<Point>> newGraph = new HashMap<>();*/
 	
 	/******************/
 	
   private static final int NUM_DEPOTS = 1;
-  private static final int NUM_TAXIS = 1;
+  private static final int NUM_TAXIS = 2;
   /**
    * Initial number of customers
    */
@@ -86,18 +87,18 @@ public final class SimulationGradientTaxi {
 
   private static final int SPEED_UP = 4;
   private static final int MAX_CAPACITY = 3;
-  private static final double NEW_CUSTOMER_PROB = .001;
+  private static final double NEW_CUSTOMER_PROB = .004;
 
-  //private static final String MAP_FILE = "/data/maps/leuven-simple.dot";
+  //private static final String MAP_FILE = "/home/ljubo/Documents/eclipse-workspace/KULTaxi/maps/heverlee-test-simple.dot";
   private static final String MAP_FILE = "/home/ljubo/Documents/eclipse-workspace/KULTaxi/maps/square.dot";
   private static final Map<String, Graph<MultiAttributeData>> GRAPH_CACHE =
     newHashMap();
-  private static final int lastNode = 7;
+  private static final int lastNode = 8;
 
   private static final long TEST_STOP_TIME = 20 * 60 * 1000;
   private static final int TEST_SPEED_UP = 64;
 
-  private SimulationGradientTaxi() {}
+  private SimulationGradientTaxi() { }
 
   /**
    * Starts the {@link SimulationRadioTaxi}.
@@ -105,12 +106,6 @@ public final class SimulationGradientTaxi {
    *          simulation.
    */
   public static void main(@Nullable String[] args) {
-	  try {
-		loadGraphNew();
-	} catch (IOException e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
-	}
 	  if (NUM_CUSTOMERS > NUM_TAXIS) { 
 		  System.out.println("Number of initial customers is greater than the number of taxis");
 		  System.exit(1);
@@ -158,7 +153,13 @@ public final class SimulationGradientTaxi {
 
     final RoadModel roadModel = simulator.getModelProvider().getModel(RoadModel.class);
     
-    final GradientField field = new GradientField(roadModel, rng, 1, 2, 0.0, 0.0, newGraph, reverseNodes);
+    field = new GradientField(roadModel, rng, 1, 2, 0.0, 0.0);
+    try {
+		field.loadGraphNew(MAP_FILE, lastNode);
+	} catch (IOException e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	}
     
     
     //add depots
@@ -177,14 +178,13 @@ public final class SimulationGradientTaxi {
     	int gas      = Math.round(tankSize / 3) + rng.nextInt(tankSize / 2);
     	
     	TaxiGradient taxi = new TaxiGradient(
-    			//roadModel.getRandomPosition(rng),
-    			nodes.get(rng.nextInt(4)),
+    			field.nodes.get(rng.nextInt(4)),
     			TAXI_CAPACITY, 
     			tankSize, 
     			gas, 
     			field,
-    			newGraph,
-    			reverseNodes);
+    			field.graph,
+    			field.reverseNodes);
     	
     	simulator.register(taxi);
     }
@@ -195,7 +195,7 @@ public final class SimulationGradientTaxi {
     	simulator.register(cust);
     }
     
-    field.calculateTaxiBasePositions();
+    //notify the field about initial customers
     field.calculateCustomerPositions();
     
     simulator.addTickListener(new TickListener() {
@@ -211,8 +211,7 @@ public final class SimulationGradientTaxi {
        		Customer cust = generateNewRandomCustomer(roadModel, rng);
         	simulator.register(cust);
         	field.calculateCustomerPositions();
-        	System.out.println("NEW CUSTOMER AT " + reverseNodes.get(cust.getDeliveryLocation()));
-        	//field.calculateCustomerPositions();
+        	System.out.println("NEW CUSTOMER AT " + field.reverseNodes.get(cust.getDeliveryLocation()));
         }
       }
 
@@ -227,10 +226,8 @@ public final class SimulationGradientTaxi {
   }
   
   private static Customer generateNewRandomCustomer(RoadModel rm, RandomGenerator rng) {
-	  Point custLocation = nodes.get(rng.nextInt(lastNode + 1));
-	  //System.out.println(custLocation);
-	  Point custDestination = nodes.get(rng.nextInt(lastNode + 1));
-	  //System.out.println(custDestination);
+	  Point custLocation = field.nodes.get(rng.nextInt(lastNode + 1));
+	  Point custDestination = field.nodes.get(rng.nextInt(lastNode + 1));
   	
 	  return new Customer(
               Parcel.builder(custLocation, custDestination)
@@ -302,69 +299,5 @@ public final class SimulationGradientTaxi {
     }
   }
   
-  private static void loadGraphNew() throws IOException {
-	  Path path = Paths.get(MAP_FILE + "apos");
-	  List<String> lines = Files.readAllLines(path, Charset.forName("ISO-8859-1"));
-	  
-	  Pattern pattern1 = Pattern.compile("\\'(.*?)\\,");
-	  Pattern pattern2 = Pattern.compile("\\,(.*?)\\'");
-	  
-	  String x = "";
-	  String y = "";
-	  
-	  for (int iCount = 1; iCount < lastNode + 2; iCount++) {
-		  Matcher matcher1 = pattern1.matcher(lines.get(iCount));
-		  while (matcher1.find()) {
-			  x = matcher1.group(0);
-			  x = x.substring(1, x.length()-1);
-		  }
-		  
-		  Matcher matcher2 = pattern2.matcher(lines.get(iCount));
-		  while (matcher2.find()) {
-			  y = matcher2.group(0);
-			  y = y.substring(1, y.length()-1);
-		  }
-		  
-		  Point p = new Point(Double.parseDouble(x), Double.parseDouble(y));
-		  nodes.put(iCount-1, p);
-		  reverseNodes.put(p, iCount-1);
-		  
-	  }
-	  
-	  Pattern pattern3 = Pattern.compile("n(\\d*?)\\s");
-	  Pattern pattern4 = Pattern.compile("\\sn(\\d*?)\\[");
-	  
-	  String z = "";
-	  String a = "";
-	  
-	  for (int iCount = lastNode + 2; iCount < lines.size(); iCount++) {
-		  
-		  Matcher matcher3 = pattern3.matcher(lines.get(iCount));
-		  while (matcher3.find()) {
-			  z = matcher3.group(0);
-			  z = z.substring(1, z.length()-1);
-		  }
-		  
-		  Matcher matcher4 = pattern4.matcher(lines.get(iCount));
-		  while (matcher4.find()) {
-			  a = matcher4.group(0);
-			  a = a.substring(2, a.length()-1);
-		  }
-		  
-		  Point key = nodes.get(Integer.parseInt(z));
-		  String keyStr = key.toString();
-		  Point value = nodes.get(Integer.parseInt(a));
-		  
-		  if (newGraph.containsKey(keyStr)) {
-			  ArrayList<Point> temp = newGraph.get(keyStr);
-			  temp.add(value);
-			  newGraph.put(keyStr, temp);
-		  } else {
-			  ArrayList<Point> temp = new ArrayList<Point>();
-			  temp.add(value);
-			  newGraph.put(keyStr, temp);
-		  }
-	  }
-	  //System.out.println("aba");
-  }
+  
 }

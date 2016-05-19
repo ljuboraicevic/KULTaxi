@@ -18,13 +18,11 @@ package taxi;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Random;
 
 import com.github.rinde.rinsim.core.model.pdp.PDPModel;
 import com.github.rinde.rinsim.core.model.pdp.Parcel;
 import com.github.rinde.rinsim.core.model.pdp.Vehicle;
 import com.github.rinde.rinsim.core.model.pdp.VehicleDTO;
-import com.github.rinde.rinsim.core.model.road.MoveProgress;
 import com.github.rinde.rinsim.core.model.road.RoadModel;
 import com.github.rinde.rinsim.core.model.road.RoadModels;
 import com.github.rinde.rinsim.core.model.time.TimeLapse;
@@ -59,7 +57,7 @@ class TaxiGradient extends Vehicle {
    */
   private GradientFieldPoint approximateDirection;
   /**
-   * sometimes rinsim skips a tick or something, so we need
+   * Sometimes rinsim skips a tick or something, so we need
    * to keep track of which node was last visited and use that as our
    * approximate current position
    */
@@ -111,7 +109,7 @@ class TaxiGradient extends Vehicle {
     	approximateDirection = field.getApproximateDirection(this);
     	
     	//code below is used for printing
-    	String strPos;
+    	/*String strPos;
 		if (reverseNodes.containsKey(position)) {
 			strPos = reverseNodes.get(position).toString();
 		} else {
@@ -121,7 +119,7 @@ class TaxiGradient extends Vehicle {
 				+ strPos 
 				+ " to " 
 				+ reverseNodes.get(approximateDirection.point));
-		System.out.println(" ");
+		System.out.println(" ");*/
     }
     
     // if the taxi isn't driving a customer
@@ -156,7 +154,7 @@ class TaxiGradient extends Vehicle {
     	else 
     	{
     		//follow the gradient field
-	    	MoveProgress mp = rm.moveTo(this, approximateDirection.point, time);
+	    	rm.moveTo(this, approximateDirection.point, time);
 	    			
 	        //check if the taxi has reached a customer
 	        ArrayList<Parcel> potentialCusts = 
