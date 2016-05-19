@@ -69,12 +69,12 @@ public final class SimulationRadioTaxi {
 	
 	/******************/
 	
-  private static final int NUM_DEPOTS = 3;
-  private static final int NUM_TAXIS = 10;
+  private static final int NUM_DEPOTS = 1;
+  private static final int NUM_TAXIS = 2;
   /**
    * Initial number of customers
    */
-  private static final int NUM_CUSTOMERS = 10;
+  private static final int NUM_CUSTOMERS = 1;
 
   // time in ms
   private static final long SERVICE_DURATION = 60000;
@@ -83,9 +83,9 @@ public final class SimulationRadioTaxi {
 
   private static final int SPEED_UP = 4;
   private static final int MAX_CAPACITY = 3;
-  private static final double NEW_CUSTOMER_PROB = .01;
+  private static final double NEW_CUSTOMER_PROB = .001;
 
-  private static final String MAP_FILE = "/data/maps/leuven-simple.dot";
+  private static final String MAP_FILE = "/home/ljubo/Documents/eclipse-workspace/KULTaxi/maps/square.dot";
   private static final Map<String, Graph<MultiAttributeData>> GRAPH_CACHE =
     newHashMap();
 
@@ -315,7 +315,7 @@ public final class SimulationRadioTaxi {
         .getMultiAttributeGraphIO(
           Filters.selfCycleFilter())
         .read(
-          SimulationRadioTaxi.class.getResourceAsStream(name));
+          name);
 
       GRAPH_CACHE.put(name, g);
       return g;

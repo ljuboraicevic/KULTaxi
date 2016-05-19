@@ -19,8 +19,16 @@ import static com.google.common.collect.Maps.newHashMap;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
@@ -56,11 +64,15 @@ import com.github.rinde.rinsim.ui.renderers.RoadUserRenderer;
 public final class SimulationGradientTaxi {
 
 	private static final int MAX_TANK = 5000;
-	private static final int NUM_GAS_STATIONS = 3;
+	private static final int NUM_GAS_STATIONS = 1;
+	
+	private static final HashMap<Integer, Point> nodes = new HashMap<>();
+	private static final HashMap<Point, Integer> reverseNodes = new HashMap<>();
+	private static final HashMap<String, ArrayList<Point>> newGraph = new HashMap<>();
 	
 	/******************/
 	
-  private static final int NUM_DEPOTS = 3;
+  private static final int NUM_DEPOTS = 0;
   private static final int NUM_TAXIS = 1;
   /**
    * Initial number of customers
@@ -74,11 +86,13 @@ public final class SimulationGradientTaxi {
 
   private static final int SPEED_UP = 4;
   private static final int MAX_CAPACITY = 3;
-  private static final double NEW_CUSTOMER_PROB = .01;
+  private static final double NEW_CUSTOMER_PROB = .001;
 
-  private static final String MAP_FILE = "/data/maps/leuven-simple.dot";
+  //private static final String MAP_FILE = "/data/maps/leuven-simple.dot";
+  private static final String MAP_FILE = "/home/ljubo/Documents/eclipse-workspace/KULTaxi/maps/square.dot";
   private static final Map<String, Graph<MultiAttributeData>> GRAPH_CACHE =
     newHashMap();
+  private static final int lastNode = 7;
 
   private static final long TEST_STOP_TIME = 20 * 60 * 1000;
   private static final int TEST_SPEED_UP = 64;
@@ -91,6 +105,12 @@ public final class SimulationGradientTaxi {
    *          simulation.
    */
   public static void main(@Nullable String[] args) {
+	  try {
+		loadGraphNew();
+	} catch (IOException e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	}
 	  if (NUM_CUSTOMERS > NUM_TAXIS) { 
 		  System.out.println("Number of initial customers is greater than the number of taxis");
 		  System.exit(1);
@@ -138,7 +158,8 @@ public final class SimulationGradientTaxi {
 
     final RoadModel roadModel = simulator.getModelProvider().getModel(RoadModel.class);
     
-    final GradientField field = new GradientField(roadModel, rng);
+    final GradientField field = new GradientField(roadModel, rng, 1, 2, 0.0, 0.0, newGraph, reverseNodes);
+    
     
     //add depots
     for (int i = 0; i < NUM_DEPOTS; i++) {
@@ -150,34 +171,34 @@ public final class SimulationGradientTaxi {
       simulator.register(new GasStation(roadModel.getRandomPosition(rng), DEPOT_CAPACITY));
     }
     
-    //this list is used to assign initial customers to taxis - doesn't take
-    //the distance between the taxi and the customer into account; first customer
-    //gets the first taxi etc
-    ArrayList<TaxiGradient> initialListOfTaxies = new ArrayList<>();
     // add taxis
     for (int i = 0; i < NUM_TAXIS; i++) {
     	int tankSize = (MAX_TANK / 2) + rng.nextInt(MAX_TANK / 2);
     	int gas      = Math.round(tankSize / 3) + rng.nextInt(tankSize / 2);
     	
     	TaxiGradient taxi = new TaxiGradient(
-    			roadModel.getRandomPosition(rng), 
+    			//roadModel.getRandomPosition(rng),
+    			nodes.get(rng.nextInt(4)),
     			TAXI_CAPACITY, 
     			tankSize, 
     			gas, 
-    			field);
+    			field,
+    			newGraph,
+    			reverseNodes);
     	
     	simulator.register(taxi);
-    	initialListOfTaxies.add(taxi);
     }
     
-    // add customers and assign them to taxis
+    // add customers
     for (int i = 0; i < NUM_CUSTOMERS; i++) {
     	Customer cust = generateNewRandomCustomer(roadModel, rng);
     	simulator.register(cust);
     }
     
+    field.calculateTaxiBasePositions();
+    field.calculateCustomerPositions();
+    
     simulator.addTickListener(new TickListener() {
-    	ArrayList<Customer> bufferedCustomers = new ArrayList<>();
     	
       @Override
       public void tick(TimeLapse time) {
@@ -188,8 +209,10 @@ public final class SimulationGradientTaxi {
         // if we still have time, roll the dice and maybe add a new customer
         else if (rng.nextDouble() < NEW_CUSTOMER_PROB) {
        		Customer cust = generateNewRandomCustomer(roadModel, rng);
-        	bufferedCustomers.add(cust);
         	simulator.register(cust);
+        	field.calculateCustomerPositions();
+        	System.out.println("NEW CUSTOMER AT " + reverseNodes.get(cust.getDeliveryLocation()));
+        	//field.calculateCustomerPositions();
         }
       }
 
@@ -204,8 +227,10 @@ public final class SimulationGradientTaxi {
   }
   
   private static Customer generateNewRandomCustomer(RoadModel rm, RandomGenerator rng) {
-	  Point custLocation = rm.getRandomPosition(rng);
-	  Point custDestination = rm.getRandomPosition(rng);
+	  Point custLocation = nodes.get(rng.nextInt(lastNode + 1));
+	  //System.out.println(custLocation);
+	  Point custDestination = nodes.get(rng.nextInt(lastNode + 1));
+	  //System.out.println(custDestination);
   	
 	  return new Customer(
               Parcel.builder(custLocation, custDestination)
@@ -265,7 +290,8 @@ public final class SimulationGradientTaxi {
         .getMultiAttributeGraphIO(
           Filters.selfCycleFilter())
         .read(
-          SimulationRadioTaxi.class.getResourceAsStream(name));
+          //SimulationRadioTaxi.class.getResourceAsStream(name));
+        		name);
 
       GRAPH_CACHE.put(name, g);
       return g;
@@ -274,5 +300,71 @@ public final class SimulationGradientTaxi {
     } catch (final IOException e) {
       throw new IllegalStateException(e);
     }
+  }
+  
+  private static void loadGraphNew() throws IOException {
+	  Path path = Paths.get(MAP_FILE + "apos");
+	  List<String> lines = Files.readAllLines(path, Charset.forName("ISO-8859-1"));
+	  
+	  Pattern pattern1 = Pattern.compile("\\'(.*?)\\,");
+	  Pattern pattern2 = Pattern.compile("\\,(.*?)\\'");
+	  
+	  String x = "";
+	  String y = "";
+	  
+	  for (int iCount = 1; iCount < lastNode + 2; iCount++) {
+		  Matcher matcher1 = pattern1.matcher(lines.get(iCount));
+		  while (matcher1.find()) {
+			  x = matcher1.group(0);
+			  x = x.substring(1, x.length()-1);
+		  }
+		  
+		  Matcher matcher2 = pattern2.matcher(lines.get(iCount));
+		  while (matcher2.find()) {
+			  y = matcher2.group(0);
+			  y = y.substring(1, y.length()-1);
+		  }
+		  
+		  Point p = new Point(Double.parseDouble(x), Double.parseDouble(y));
+		  nodes.put(iCount-1, p);
+		  reverseNodes.put(p, iCount-1);
+		  
+	  }
+	  
+	  Pattern pattern3 = Pattern.compile("n(\\d*?)\\s");
+	  Pattern pattern4 = Pattern.compile("\\sn(\\d*?)\\[");
+	  
+	  String z = "";
+	  String a = "";
+	  
+	  for (int iCount = lastNode + 2; iCount < lines.size(); iCount++) {
+		  
+		  Matcher matcher3 = pattern3.matcher(lines.get(iCount));
+		  while (matcher3.find()) {
+			  z = matcher3.group(0);
+			  z = z.substring(1, z.length()-1);
+		  }
+		  
+		  Matcher matcher4 = pattern4.matcher(lines.get(iCount));
+		  while (matcher4.find()) {
+			  a = matcher4.group(0);
+			  a = a.substring(2, a.length()-1);
+		  }
+		  
+		  Point key = nodes.get(Integer.parseInt(z));
+		  String keyStr = key.toString();
+		  Point value = nodes.get(Integer.parseInt(a));
+		  
+		  if (newGraph.containsKey(keyStr)) {
+			  ArrayList<Point> temp = newGraph.get(keyStr);
+			  temp.add(value);
+			  newGraph.put(keyStr, temp);
+		  } else {
+			  ArrayList<Point> temp = new ArrayList<Point>();
+			  temp.add(value);
+			  newGraph.put(keyStr, temp);
+		  }
+	  }
+	  //System.out.println("aba");
   }
 }
