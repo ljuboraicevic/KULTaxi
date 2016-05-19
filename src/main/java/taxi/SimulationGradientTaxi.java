@@ -19,16 +19,7 @@ import static com.google.common.collect.Maps.newHashMap;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
@@ -183,7 +174,7 @@ public final class SimulationGradientTaxi {
     }
     
     //notify the field about initial customers
-    field.calculateCustomerPositions();
+    field.updateCustomerPositions();
     
     simulator.addTickListener(new TickListener() {
     	
@@ -197,7 +188,7 @@ public final class SimulationGradientTaxi {
         else if (rng.nextDouble() < NEW_CUSTOMER_PROB) {
        		Customer cust = generateNewRandomCustomer(roadModel, rng);
         	simulator.register(cust);
-        	field.calculateCustomerPositions();
+        	field.updateCustomerPositions();
         	System.out.println("NEW CUSTOMER AT " 
         			+ field.reverseNodes.get(cust.getDeliveryLocation()));
         }

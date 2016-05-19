@@ -86,8 +86,8 @@ public class GradientField {
 	
 	/**
 	 * Returns adjacent nodes in the graph from the last node that has been 
-	 * visited (see javadoc for lastNode on why is current location not being
-	 * used)
+	 * visited (see lastNode's javadoc for for why lastNode and not 
+	 * current location is being used)
 	 * 
 	 * @param vehicle
 	 * @return
@@ -153,7 +153,7 @@ public class GradientField {
 	/**
 	 * Updates current locations of all customers that are waiting for service.
 	 */
-	public void calculateCustomerPositions() {
+	public void updateCustomerPositions() {
 		customerPositions = new ArrayList<>();
 		ArrayList<Customer> allCustomers = 
 				new ArrayList<>(roadModel.getObjectsOfType(Customer.class));

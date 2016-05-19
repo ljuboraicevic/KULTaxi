@@ -170,7 +170,7 @@ class TaxiGradient extends Vehicle {
 	    		//BE USED IN ANY PLACE WHERE CUSTOMER IS DELIVERED
 	            curr = Optional.fromNullable(potentialCusts.get(0));
 	            field.customersInTransport.put((Customer)curr.get(), true);
-	            field.calculateCustomerPositions();
+	            field.updateCustomerPositions();
 	        }
     	}
     }
@@ -188,7 +188,7 @@ class TaxiGradient extends Vehicle {
     		//THIS CODE IS VERY IMPORTAND FOR GRADIENT FIELD BOOKKEEPING, SHOULD
     		//BE USED IN ANY PLACE WHERE CUSTOMER IS DELIVERED
     		field.customersInTransport.remove((Customer)curr.get());
-    		field.calculateCustomerPositions();
+    		field.updateCustomerPositions();
     		curr = Optional.absent();
     	}
     }
