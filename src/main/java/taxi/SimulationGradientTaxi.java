@@ -56,6 +56,7 @@ public final class SimulationGradientTaxi {
 
 	private static final int MAX_TANK = 5000;
 	private static final int NUM_GAS_STATIONS = 1;
+	private static final long STANDARD_SIM_TIME = 8 * 60 * 60 * 1000;
 	static GradientField field;
 	
 	/******************/
@@ -94,7 +95,7 @@ public final class SimulationGradientTaxi {
 		  System.exit(1);
 	  }
     final long endTime = args != null && args.length >= 1 ? Long
-      .parseLong(args[0]) : Long.MAX_VALUE;
+      .parseLong(args[0]) : STANDARD_SIM_TIME;
 
     final String graphFile = args != null && args.length >= 2 ? args[1]
       : MAP_FILE;
@@ -141,6 +142,7 @@ public final class SimulationGradientTaxi {
 		field.loadGraphNew(MAP_FILE, lastNode);
 	} catch (IOException e) { e.printStackTrace(); }
     
+    final SimpleLogger log = new SimpleLogger();
     
     //add depots
     for (int i = 0; i < NUM_DEPOTS; i++) {
@@ -162,15 +164,18 @@ public final class SimulationGradientTaxi {
     			TAXI_CAPACITY, 
     			tankSize, 
     			gas, 
-    			field);
+    			field,
+    			log);
     	
     	simulator.register(taxi);
+    	log.registerTaxi(taxi);
     }
     
     // add customers
     for (int i = 0; i < NUM_CUSTOMERS; i++) {
     	Customer cust = generateNewRandomCustomer(roadModel, rng);
     	simulator.register(cust);
+    	log.logCustomerRegistered(cust, 0);
     }
     
     //notify the field about initial customers
@@ -183,12 +188,18 @@ public final class SimulationGradientTaxi {
     	//stop the simulation if time runs out
         if (time.getStartTime() > endTime) {
           simulator.stop();
+          log.printAllCustomerRawData();
+          System.out.println("distance per taxi");
+          log.printDistanceCoveredPerTaxi();
+          System.out.println("customers served per taxi");
+          log.printNumberOfCustomersServedPerTaxi();
         } 
         // if we still have time, roll the dice and maybe add a new customer
         else if (rng.nextDouble() < NEW_CUSTOMER_PROB) {
        		Customer cust = generateNewRandomCustomer(roadModel, rng);
         	simulator.register(cust);
         	field.updateCustomerPositions();
+        	log.logCustomerRegistered(cust, time.getTime());
         }
       }
 

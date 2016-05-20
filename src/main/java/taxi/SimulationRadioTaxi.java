@@ -21,10 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -34,10 +31,7 @@ import org.eclipse.swt.widgets.Monitor;
 
 import com.github.rinde.rinsim.core.Simulator;
 import com.github.rinde.rinsim.core.model.pdp.DefaultPDPModel;
-import com.github.rinde.rinsim.core.model.pdp.Depot;
-import com.github.rinde.rinsim.core.model.pdp.PDPModel;
 import com.github.rinde.rinsim.core.model.pdp.Parcel;
-import com.github.rinde.rinsim.core.model.pdp.ParcelDTO;
 import com.github.rinde.rinsim.core.model.road.RoadModel;
 import com.github.rinde.rinsim.core.model.road.RoadModelBuilders;
 import com.github.rinde.rinsim.core.model.road.RoadModels;
@@ -66,6 +60,7 @@ public final class SimulationRadioTaxi {
 	private static final double RADIUS = 20000;
 	private static final int MAX_TANK = 5000;
 	private static final int NUM_GAS_STATIONS = 3;
+	private static final long STANDARD_SIM_TIME = 8 * 60 * 60 * 1000;
 	
 	/******************/
 	
@@ -105,7 +100,7 @@ public final class SimulationRadioTaxi {
 		  System.exit(1);
 	  }
     final long endTime = args != null && args.length >= 1 ? Long
-      .parseLong(args[0]) : Long.MAX_VALUE;
+      .parseLong(args[0]) : STANDARD_SIM_TIME;
 
     final String graphFile = args != null && args.length >= 2 ? args[1]
       : MAP_FILE;
@@ -147,6 +142,8 @@ public final class SimulationRadioTaxi {
 
     final RoadModel roadModel = simulator.getModelProvider().getModel(RoadModel.class);
     
+    final SimpleLogger log = new SimpleLogger();
+    
     //add depots
     for (int i = 0; i < NUM_DEPOTS; i++) {
       simulator.register(new TaxiBase(roadModel.getRandomPosition(rng), DEPOT_CAPACITY));
@@ -165,9 +162,10 @@ public final class SimulationRadioTaxi {
     for (int i = 0; i < NUM_TAXIS; i++) {
     	int tankSize = (MAX_TANK / 2) + rng.nextInt(MAX_TANK / 2);
     	int gas = Math.round(tankSize / 3) + rng.nextInt(tankSize / 2);
-    	Taxi taxi = new Taxi(roadModel.getRandomPosition(rng), TAXI_CAPACITY, tankSize, gas);
+    	Taxi taxi = new Taxi(roadModel.getRandomPosition(rng), TAXI_CAPACITY, tankSize, gas, log);
     	simulator.register(taxi);
     	initialListOfTaxies.add(taxi);
+    	log.registerTaxi(taxi);
     }
     
     // add customers and assign them to taxis
@@ -175,11 +173,12 @@ public final class SimulationRadioTaxi {
     	Customer cust = generateNewRandomCustomer(roadModel, rng);
     	simulator.register(cust);
     	//RoadModels.findClosestObject(cust.getPickupLocation(), roadModel, Taxi.class).assingCustomer(cust);
-    	initialListOfTaxies.get(i).assingCustomer(cust);
+    	initialListOfTaxies.get(i).assignCustomer(cust);
+    	log.logCustomerRegistered(cust, 0);
     }
     
     simulator.addTickListener(new TickListener() {
-    	ArrayList<Customer> bufferedCustomers = new ArrayList<>();
+    	ArrayList<Parcel> bufferedCustomers = new ArrayList<>();
     	double radius = RADIUS;
     	
       @Override
@@ -187,22 +186,28 @@ public final class SimulationRadioTaxi {
     	//stop the simulation if time runs out
         if (time.getStartTime() > endTime) {
           simulator.stop();
+          log.printAllCustomerRawData();
+          System.out.println("distance per taxi");
+          log.printDistanceCoveredPerTaxi();
+          System.out.println("customers served per taxi");
+          log.printNumberOfCustomersServedPerTaxi();
         } 
         // if we still have time, roll the dice and maybe add a new customer
         else {
         	if (rng.nextDouble() < NEW_CUSTOMER_PROB) {
-        		Customer cust = generateNewRandomCustomer(roadModel, rng);
+        		Parcel cust = generateNewRandomCustomer(roadModel, rng);
 	        	bufferedCustomers.add(cust);
 	        	simulator.register(cust);
+	        	log.logCustomerRegistered(cust, time.getTime());
         	}
         	
         	//if there are some customers that haven't been assigned to a taxi
         	//assign them now
         	if (bufferedCustomers.size() > 0) {
-        		Customer cust = bufferedCustomers.get(0);
+        		Parcel cust = bufferedCustomers.get(0);
         		Taxi taxi = callForTaxi(cust.getPickupLocation(), roadModel, rng, radius);
 	        	if (taxi != null) {
-	        		taxi.assingCustomer(cust);
+	        		taxi.assignCustomer(cust);
 	        		bufferedCustomers.remove(0);
 	        		radius = RADIUS;
 	        	}

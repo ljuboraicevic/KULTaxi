@@ -31,9 +31,12 @@ import com.google.common.base.Optional;
  *
  * @author Rinde van Lon
  */
-class Taxi extends Vehicle {
+class Taxi extends Vehicle implements TaxiInterface {
   private static final double SPEED = 10000d;
   private Optional<Parcel> curr;
+  private long distance;
+  private int customersServed;
+  private SimpleLogger log;
   /**
    * Different taxis can have different gas tank sizes.
    */
@@ -43,7 +46,7 @@ class Taxi extends Vehicle {
    */
   private int gas;
 
-  Taxi(Point startPosition, int capacity, int tankSize, int gas) {
+  Taxi(Point startPosition, int capacity, int tankSize, int gas, SimpleLogger log) {
     super(VehicleDTO.builder()
       .capacity(capacity)
       .startPosition(startPosition)
@@ -52,6 +55,9 @@ class Taxi extends Vehicle {
     curr = Optional.absent();
     this.tankSize = tankSize;
     this.gas = gas;
+    this.distance = 0; 
+    this.customersServed = 0;
+    this.log = log;
   }
 
   @Override
@@ -91,6 +97,7 @@ class Taxi extends Vehicle {
 	    		//gas-- at the end of the method; this is NOT refilling, just
 	    		//keeping the amount of gas the same
 	    		gas++;
+	    		distance--;
 	    	}
     	}
     }
@@ -108,7 +115,9 @@ class Taxi extends Vehicle {
         if (position.equals(curr.get().getDeliveryLocation())) {
           // drop off passengers
           pm.deliver(this, curr.get(), time);
+          log.logCustomerDelivered(curr.get(), time.getTime());
           curr = Optional.absent();
+          customersServed++;
         }
       } else {
         // it is still available, go there as fast as possible
@@ -116,15 +125,17 @@ class Taxi extends Vehicle {
         if (rm.equalPosition(this, curr.get())) {
           // pickup customer
           pm.pickup(this, curr.get(), time);
+          log.logCustomerPickedUp(curr.get(), time.getTime());
         }
       }
     }
     
     //reduce amount of gas
     gas--;
+    distance++;
   }
   
-  public void assingCustomer(Parcel customer) {
+  public void assignCustomer(Parcel customer) {
 	  curr = Optional.fromNullable(customer);
   }
   
@@ -139,4 +150,14 @@ class Taxi extends Vehicle {
   private boolean lowGas() {
 	  return gas < Math.round(tankSize / 5);
   }
+
+	@Override
+	public long getDistanceCovered() {
+		return this.distance;
+	}
+	
+	@Override
+	public int getNumberOfCustomersServed() {
+		return customersServed;
+	}
 }

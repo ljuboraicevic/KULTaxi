@@ -34,8 +34,11 @@ import com.google.common.base.Optional;
  *
  * @author Rinde van Lon
  */
-class TaxiGradient extends Vehicle {
+class TaxiGradient extends Vehicle implements TaxiInterface {
   private static final double SPEED = 5000d;
+  private long distance;
+  private int customersServed;
+  SimpleLogger log;
   /**
    * Parcel that is currently being delivered.
    */
@@ -60,7 +63,7 @@ class TaxiGradient extends Vehicle {
   /**
    * Current position of the taxi
    */
-  private Point position;
+  private Point currentPosition;
   
   /**
    * Sometimes rinsim skips a tick or something, so we need
@@ -69,7 +72,14 @@ class TaxiGradient extends Vehicle {
    */
   public Point lastNode;  
 
-  TaxiGradient(Point startPosition, int capacity, int tankSize, int gas, GradientField field) {
+  TaxiGradient(
+		  Point startPosition, 
+		  int capacity, 
+		  int tankSize, 
+		  int gas, 
+		  GradientField field, 
+		  SimpleLogger log) {
+	  
     super(VehicleDTO.builder()
       .capacity(capacity)
       .startPosition(startPosition)
@@ -80,8 +90,11 @@ class TaxiGradient extends Vehicle {
     this.gas = gas;
     this.field = field;
     this.approximateDirection = null;
-    this.position = startPosition;
+    this.currentPosition = startPosition;
     this.lastNode = startPosition;
+    this.distance = 0; 
+    this.customersServed = 0;
+    this.log = log;
   }
 
   @Override
@@ -95,18 +108,13 @@ class TaxiGradient extends Vehicle {
     if (!time.hasTimeLeft()) { return; }
 
     //position at this tick
-    position = rm.getPosition(this);
+    currentPosition = rm.getPosition(this);
 
     //if taxi is currently at one of the nodes
-    if (field.graph.containsKey(position.toString())) {
-    	//sometimes rinsim skips a tick or something, so we need
-    	//to keep track of which node was last visited and use that as our
-    	//approximate current position
-    	lastNode = position;
-    	
+    if (field.graph.containsKey(currentPosition.toString())) {
+    	lastNode = currentPosition;
     	//if it's at a node calculate approximate direction based on the field
     	approximateDirection = field.getApproximateDirection(this);
-    	
     	//printMovingFromTo();
     }
     
@@ -115,7 +123,7 @@ class TaxiGradient extends Vehicle {
     	//if the taxi is low on gas, go to the nearest gas station
     	if (lowGas()) {
     		GasStation closestGasStation = (GasStation) 
-    				RoadModels.findClosestObject(position, rm, GasStation.class);
+    				RoadModels.findClosestObject(currentPosition, rm, GasStation.class);
     		
     		rm.moveTo(this, closestGasStation, time);
     		//refill the tank when gas station is reached
@@ -127,14 +135,15 @@ class TaxiGradient extends Vehicle {
     	
     	// if there are no customers, go to the nearest base
     	else if (approximateDirection.strength <= 0.000000000001) {
-    		TaxiBase closestBase = (TaxiBase) RoadModels.findClosestObject(position, rm, TaxiBase.class);
-	    	if (!position.equals(rm.getPosition(closestBase))) {
+    		TaxiBase closestBase = (TaxiBase) RoadModels.findClosestObject(currentPosition, rm, TaxiBase.class);
+	    	if (!currentPosition.equals(rm.getPosition(closestBase))) {
 	    		rm.moveTo(this, closestBase, time);
 	    	} else {
 	    		//if taxi is at the taxi base -> add one, to counter balance the 
 	    		//gas-- at the end of the method; this is NOT refilling, just
 	    		//keeping the amount of gas the same
 	    		gas++;
+	    		distance--;
 	    	}
     	}
     	
@@ -160,7 +169,7 @@ class TaxiGradient extends Vehicle {
     	//go to its destination using the shortest path (not gradient field)
     	rm.moveTo(this, customerDestination, time);
     	// if we're at the destination
-    	if (position.equals(customerDestination)) {
+    	if (currentPosition.equals(customerDestination)) {
     		// deliver passengers
     		deliverCustomer(curr.get(), pm, time);
     	}
@@ -168,6 +177,7 @@ class TaxiGradient extends Vehicle {
     
     //reduce amount of gas
     gas--;
+    distance++;
   }
   
   /**
@@ -204,15 +214,17 @@ class TaxiGradient extends Vehicle {
 
 	  if (print) {
 		  System.out.println("Customer picked up at " 
-				  + field.reverseNodes.get(position) 
+				  + field.reverseNodes.get(currentPosition) 
 				  + " : " 
-				  + position.toString());
+				  + currentPosition.toString());
 	  }
   	
 	  //THIS CODE IS VERY IMPORTANT FOR GRADIENT FIELD BOOKKEEPING
 	  curr = Optional.fromNullable(c);
       field.customersInTransport.put((Customer)curr.get(), true);
       field.updateCustomerPositions();
+      customersServed++;
+      log.logCustomerPickedUp(c, time.getTime());
   }
   
   /**
@@ -246,6 +258,7 @@ class TaxiGradient extends Vehicle {
 	  //CODE BELOW IS VERY IMPORTANT FOR GRADIENT FIELD BOOKKEEPING
 	  field.customersInTransport.remove((Customer)curr.get());
 	  field.updateCustomerPositions();
+	  log.logCustomerDelivered(curr.get(), time.getTime());
 	  curr = Optional.absent();
   }
   
@@ -263,10 +276,10 @@ class TaxiGradient extends Vehicle {
    */
   private void printMovingFromTo() {
 	String strPos;
-	if (field.reverseNodes.containsKey(position)) {
-		strPos = field.reverseNodes.get(position).toString();
+	if (field.reverseNodes.containsKey(currentPosition)) {
+		strPos = field.reverseNodes.get(currentPosition).toString();
 	} else {
-		strPos = position.toString();
+		strPos = currentPosition.toString();
 	}
 	System.out.println("Moving from " 
 				+ strPos 
@@ -274,4 +287,14 @@ class TaxiGradient extends Vehicle {
 				+ field.reverseNodes.get(approximateDirection.point));
 	System.out.println(" ");
   }
+
+	@Override
+	public long getDistanceCovered() {
+		return this.distance;
+	}
+	
+	@Override
+	public int getNumberOfCustomersServed() {
+		return customersServed;
+	}
 }
