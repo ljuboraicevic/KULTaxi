@@ -15,6 +15,7 @@ import org.apache.commons.math3.random.RandomGenerator;
 
 import com.github.rinde.rinsim.core.model.road.RoadModel;
 import com.github.rinde.rinsim.core.model.road.RoadModels;
+import com.github.rinde.rinsim.core.model.road.RoadUser;
 import com.github.rinde.rinsim.geom.Point;
 
 public class GradientField {
@@ -81,7 +82,7 @@ public class GradientField {
 	 */
 	public GradientFieldPoint getApproximateDirection(TaxiGradient vehicle) {
 		ArrayList<Point> samples = samplePoints(vehicle);
-		return getStrongestPoint(samples, roadModel.getPosition(vehicle));
+		return getStrongestPoint(samples, vehicle);
 	}
 	
 	/**
@@ -93,8 +94,8 @@ public class GradientField {
 	 * @return
 	 */
 	private ArrayList<Point> samplePoints(TaxiGradient vehicle) {
-		ArrayList<Point> initial = new ArrayList<>(graph.get(vehicle.lastNode.toString()));
-		return initial;
+		ArrayList<Point> result = new ArrayList<>(graph.get(vehicle.lastNode.toString()));
+		return result;
 	}
 	
 	/**
@@ -102,23 +103,21 @@ public class GradientField {
 	 * gradient field.
 	 * 
 	 * @param samples
-	 * @param a
+	 * @param vehicle
 	 * @return
 	 */
-	private GradientFieldPoint getStrongestPoint(ArrayList<Point> samples, Point a) {
+	private GradientFieldPoint getStrongestPoint(ArrayList<Point> samples, RoadUser vehicle) {
 		double max = Double.MIN_VALUE;
 		Point maxPoint = samples.get(0);
 		
-		//System.out.println("At " + reverseNodes.get(a) +", considering: ");
-		
 		for (Point p: samples) {
-			double strenght = calculateFieldStrengthAtPoint(p);
+			double strenght = calculateFieldStrengthAtPoint(p, vehicle);
 			if (strenght > max) {
 				max = strenght;
 				maxPoint = p;
 			}
 		}
-		//System.out.println("Chosen " + reverseNodes.get(maxPoint));
+		
 		return new GradientFieldPoint(maxPoint, max);
 	}
 	
@@ -130,9 +129,10 @@ public class GradientField {
 	 * sum.
 	 * 
 	 * @param p
+	 * @param vehicle
 	 * @return
 	 */
-	private double calculateFieldStrengthAtPoint(Point p) {
+	private double calculateFieldStrengthAtPoint(Point p, RoadUser vehicle) {
 		double sum = 0;
 		
 		for (Point cp: customerPositions) {
@@ -140,7 +140,7 @@ public class GradientField {
 			sum += 1 / Math.pow(dist, signalDrop);
 		}
 		
-		ArrayList<Point> taxiPositions = calculateTaxiPositions();
+		ArrayList<Point> taxiPositions = calculateTaxiPositions(vehicle);
 		
 		for (Point tp: taxiPositions) {
 			double dist = Point.distance(tp, p);
@@ -170,14 +170,17 @@ public class GradientField {
 	 * Calculates current locations of all active taxis.
 	 * (Active meaning not at a TaxiBase or currently driving a customer
 	 * 
+	 * @param vehicle
 	 * @return List of all active taxis
 	 */
-	private ArrayList<Point> calculateTaxiPositions() {
+	private ArrayList<Point> calculateTaxiPositions(RoadUser vehicle) {
 		ArrayList<Point> taxiPositions = new ArrayList<>();
 		ArrayList<TaxiGradient> allTaxis = 
 				new ArrayList<>(roadModel.getObjectsOfType(TaxiGradient.class));
 		
 		for (TaxiGradient t: allTaxis) {
+			// don't add the taxi for which the field is being calculated
+			if (t.equals((TaxiGradient)vehicle)) { continue; }
 			//find closest TaxiBase
 			Point position = roadModel.getPosition(t);
 			Point taxiBasePosition = roadModel.getPosition(RoadModels.findClosestObject(position, roadModel, TaxiBase.class));
