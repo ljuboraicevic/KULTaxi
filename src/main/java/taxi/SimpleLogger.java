@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+
 import com.github.rinde.rinsim.core.model.pdp.Parcel;
 
 public class SimpleLogger {
@@ -60,43 +62,108 @@ public class SimpleLogger {
 		taxis.add(taxi);
 	}
 	
-	public long getAverageTimeFromRegisterToPickup() {
-		//TODO
-		return 0;
+	public double getMeanTimeFromRegisterToPickup() {
+		DescriptiveStatistics stats = new DescriptiveStatistics();
+		for (Parcel c: customers) {
+			try {
+			stats.addValue(customerPickupTime.get(c) - customerRegistrationTime.get(c));
+			} catch (Exception e) {}
+		}
+		return stats.getMean();
 	}
 	
-	public long getSDTimeFromRegisterToPickup() {
-		//TODO
-		return 0;
+	public double getSDTimeFromRegisterToPickup() {
+		DescriptiveStatistics stats = new DescriptiveStatistics();
+		for (Parcel c: customers) {
+			try {
+			stats.addValue(customerPickupTime.get(c) - customerRegistrationTime.get(c));
+			} catch (Exception e) {}
+		}
+		return stats.getStandardDeviation();
 	}
 	
-	public long getAverageTimeFromRegisterToDelivery() {
-		//TODO
-		return 0;
+	public double getMeanTimeFromRegisterToDelivery() {
+		DescriptiveStatistics stats = new DescriptiveStatistics();
+		for (Parcel c: customers) {
+			try {
+			stats.addValue(customerDeliveryTime.get(c) - customerRegistrationTime.get(c));
+			} catch (Exception e) {}
+		}
+		return stats.getMean();
 	}
 	
-	public long getSDTimeFromRegisterToDelivery() {
-		//TODO
-		return 0;
+	public double getSDTimeFromRegisterToDelivery() {
+		DescriptiveStatistics stats = new DescriptiveStatistics();
+		for (Parcel c: customers) {
+			try {
+			stats.addValue(customerDeliveryTime.get(c) - customerRegistrationTime.get(c));
+			} catch (Exception e) {}
+		}
+		return stats.getStandardDeviation();
 	}
 	
-	public long getAverageDistanceCoveredByTaxis() {
-		//TODO
-		return 0;
+	public double getMeanDistanceCoveredByTaxis() {
+		DescriptiveStatistics stats = new DescriptiveStatistics();
+		for (TaxiInterface t: taxis) {
+			try {
+			stats.addValue(t.getDistanceCovered());
+			} catch (Exception e) {}
+		}
+		return stats.getMean();
 	}
 	
-	public long getSDDistanceCoveredByTaxis() {
-		//TODO
-		return 0;
+	public double getSDDistanceCoveredByTaxis() {
+		DescriptiveStatistics stats = new DescriptiveStatistics();
+		for (TaxiInterface t: taxis) {
+			try {
+			stats.addValue(t.getDistanceCovered());
+			} catch (Exception e) {}
+		}
+		return stats.getStandardDeviation();
 	}
 	
-	public long getAverageNoOfCustomersServedByTaxis() {
-		//TODO
-		return 0;
+	public double getMeanNoOfCustomersServedByTaxis() {
+		DescriptiveStatistics stats = new DescriptiveStatistics();
+		for (TaxiInterface t: taxis) {
+			try {
+			stats.addValue(t.getNumberOfCustomersServed());
+			} catch (Exception e) {}
+		}
+		return stats.getMean();
 	}
 	
-	public long getSDNoOfCustomersServedByTaxis() {
-		//TODO
-		return 0;
+	public double getSDNoOfCustomersServedByTaxis() {
+		DescriptiveStatistics stats = new DescriptiveStatistics();
+		for (TaxiInterface t: taxis) {
+			try {
+			stats.addValue(t.getNumberOfCustomersServed());
+			} catch (Exception e) {}
+		}
+		return stats.getStandardDeviation();
+	}
+	
+	public void printAllStatistics() {
+		System.out.println("customer 1) register time 2) pickup time 3) delivery time");
+		printAllCustomerRawData();
+        System.out.println("distance per taxi");
+        printDistanceCoveredPerTaxi();
+        System.out.println("customers served per taxi");
+        printNumberOfCustomersServedPerTaxi();
+        System.out.println("mean register to pickup time");
+        System.out.println(getMeanTimeFromRegisterToPickup());
+        System.out.println("sd register to pickup time");
+        System.out.println(getSDTimeFromRegisterToPickup());
+        System.out.println("mean register to delivery time");
+        System.out.println(getMeanTimeFromRegisterToDelivery());
+        System.out.println("sd register to delivery time");
+        System.out.println(getSDTimeFromRegisterToDelivery());
+        System.out.println("mean distance covered by taxis");
+        System.out.println(getMeanDistanceCoveredByTaxis());
+        System.out.println("sd distance covered by taxis");
+        System.out.println(getSDDistanceCoveredByTaxis());
+        System.out.println("mean customers served by taxis");
+        System.out.println(getMeanNoOfCustomersServedByTaxis());
+        System.out.println("sd customers served by taxis");
+        System.out.println(getSDNoOfCustomersServedByTaxis());
 	}
 }

@@ -186,11 +186,7 @@ public final class SimulationRadioTaxi {
     	//stop the simulation if time runs out
         if (time.getStartTime() > endTime) {
           simulator.stop();
-          log.printAllCustomerRawData();
-          System.out.println("distance per taxi");
-          log.printDistanceCoveredPerTaxi();
-          System.out.println("customers served per taxi");
-          log.printNumberOfCustomersServedPerTaxi();
+          log.printAllStatistics();
         } 
         // if we still have time, roll the dice and maybe add a new customer
         else {
