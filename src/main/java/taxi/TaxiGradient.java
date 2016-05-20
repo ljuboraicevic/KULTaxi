@@ -97,26 +97,17 @@ class TaxiGradient extends Vehicle {
     //position at this tick
     position = rm.getPosition(this);
 
-    //sometimes rinsim skips a tick or something, so we need
-	//to keep track of which node was last visited and use that as our
-	//approximate current position
+    //if taxi is currently at one of the nodes
     if (field.graph.containsKey(position.toString())) {
+    	//sometimes rinsim skips a tick or something, so we need
+    	//to keep track of which node was last visited and use that as our
+    	//approximate current position
     	lastNode = position;
     	
+    	//if it's at a node calculate approximate direction based on the field
     	approximateDirection = field.getApproximateDirection(this);
     	
-    	//code below is used for printing
-    	/*String strPos;
-		if (reverseNodes.containsKey(position)) {
-			strPos = reverseNodes.get(position).toString();
-		} else {
-			strPos = position.toString();
-		}
-		System.out.println("Moving from " 
-				+ strPos 
-				+ " to " 
-				+ reverseNodes.get(approximateDirection.point));
-		System.out.println(" ");*/
+    	//printMovingFromTo();
     }
     
     // if the taxi isn't driving a customer
@@ -159,37 +150,19 @@ class TaxiGradient extends Vehicle {
 	        
 	        if (!potentialCusts.isEmpty()) {
 	        	// pickup customer
-	        	pm.pickup(this, potentialCusts.get(0), time);
-
-	        	System.out.println("Customer picked up at " 
-	            		+ field.reverseNodes.get(position) 
-	            		+ " : " 
-	            		+ position.toString());
-	        	
-	        	//THIS CODE IS VERY IMPORTAND FOR GRADIENT FIELD BOOKKEEPING, SHOULD
-	    		//BE USED IN ANY PLACE WHERE CUSTOMER IS DELIVERED
-	            curr = Optional.fromNullable(potentialCusts.get(0));
-	            field.customersInTransport.put((Customer)curr.get(), true);
-	            field.updateCustomerPositions();
+	        	pickUpCustomer(potentialCusts.get(0), pm, time);
 	        }
     	}
     }
     // if there is a customer currently in the taxi
     else {
+    	Point customerDestination = curr.get().getDeliveryLocation();
     	//go to its destination using the shortest path (not gradient field)
-    	rm.moveTo(this, curr.get().getDeliveryLocation(), time);
+    	rm.moveTo(this, customerDestination, time);
     	// if we're at the destination
-    	if (position.equals(curr.get().getDeliveryLocation())) {
-    		// drop off passengers
-    		System.out.println("Customer delivered at " 
-    				+ field.reverseNodes.get(curr.get().getDeliveryLocation()));
-    		
-    		pm.deliver(this, curr.get(), time);
-    		//THIS CODE IS VERY IMPORTAND FOR GRADIENT FIELD BOOKKEEPING, SHOULD
-    		//BE USED IN ANY PLACE WHERE CUSTOMER IS DELIVERED
-    		field.customersInTransport.remove((Customer)curr.get());
-    		field.updateCustomerPositions();
-    		curr = Optional.absent();
+    	if (position.equals(customerDestination)) {
+    		// deliver passengers
+    		deliverCustomer(curr.get(), pm, time);
     	}
     }
     
@@ -198,18 +171,107 @@ class TaxiGradient extends Vehicle {
   }
   
   /**
+   * Checks if taxi is currently driving a customer
    * 
-   * @return Checks if taxi is currently driving a customer
+   * @return 
    */
   public boolean isDrivingACustomer() {
 	  return curr.isPresent();
   }
   
   /**
+   * Pick up customer without printing
+   * 
+   * @param c
+   * @param pm
+   * @param time
+   */
+  private void pickUpCustomer(Parcel c, PDPModel pm, TimeLapse time) {
+	  pickUpCustomer(c, pm, time, false);
+  }
+  
+  /**
+   * Picks up the customer and does the bookkeeping necessary to maintain
+   * the gradient field.
+   * 
+   * @param c Customer to be picked up
+   * @param pm PDPModel
+   * @param time Simulation TimeLapse
+   * @param print true if a message is to be written to stdout, false otherwise
+   */
+  private void pickUpCustomer(Parcel c, PDPModel pm, TimeLapse time, boolean print) {
+	  pm.pickup(this, c, time);
+
+	  if (print) {
+		  System.out.println("Customer picked up at " 
+				  + field.reverseNodes.get(position) 
+				  + " : " 
+				  + position.toString());
+	  }
+  	
+	  //THIS CODE IS VERY IMPORTANT FOR GRADIENT FIELD BOOKKEEPING
+	  curr = Optional.fromNullable(c);
+      field.customersInTransport.put((Customer)curr.get(), true);
+      field.updateCustomerPositions();
+  }
+  
+  /**
+   * Deliver customer without printing
+   * 
+   * @param c
+   * @param pm
+   * @param time
+   */
+  private void deliverCustomer(Parcel c, PDPModel pm, TimeLapse time) {
+	  deliverCustomer(c, pm, time, false);
+  }
+  
+  /**
+   * Delivers the customer and does the bookkeeping necessary to maintain
+   * the gradient field.
+   * 
+   * @param c Customer to be delivered
+   * @param pm PDPModel
+   * @param time Simulation TimeLapse
+   * @param print true if a message is to be written to stdout, false otherwise
+   */
+  private void deliverCustomer(Parcel c, PDPModel pm, TimeLapse time, boolean print) {
+	  if (print) {
+		  System.out.println("Customer delivered at " 
+					+ field.reverseNodes.get(curr.get().getDeliveryLocation()));
+	  }
+	  
+	  pm.deliver(this, curr.get(), time);
+	  
+	  //CODE BELOW IS VERY IMPORTANT FOR GRADIENT FIELD BOOKKEEPING
+	  field.customersInTransport.remove((Customer)curr.get());
+	  field.updateCustomerPositions();
+	  curr = Optional.absent();
+  }
+  
+  /**
    * Checks if gas level is below 20%.
+   * 
    * @return
    */
   private boolean lowGas() {
 	  return gas < Math.round(tankSize / 5);
+  }
+  
+  /**
+   * Prints current location and the location the taxi is moving towards.
+   */
+  private void printMovingFromTo() {
+	String strPos;
+	if (field.reverseNodes.containsKey(position)) {
+		strPos = field.reverseNodes.get(position).toString();
+	} else {
+		strPos = position.toString();
+	}
+	System.out.println("Moving from " 
+				+ strPos 
+				+ " to " 
+				+ field.reverseNodes.get(approximateDirection.point));
+	System.out.println(" ");
   }
 }
