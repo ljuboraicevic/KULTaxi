@@ -189,8 +189,6 @@ public final class SimulationGradientTaxi {
        		Customer cust = generateNewRandomCustomer(roadModel, rng);
         	simulator.register(cust);
         	field.updateCustomerPositions();
-        	System.out.println("NEW CUSTOMER AT " 
-        			+ field.reverseNodes.get(cust.getDeliveryLocation()));
         }
       }
 
@@ -205,12 +203,17 @@ public final class SimulationGradientTaxi {
   private static Customer generateNewRandomCustomer(RoadModel rm, RandomGenerator rng) {
 	  Point custLocation = field.nodes.get(rng.nextInt(lastNode + 1));
 	  Point custDestination = field.nodes.get(rng.nextInt(lastNode + 1));
-  	
-	  return new Customer(
+	  
+	  Customer cust = new Customer(
               Parcel.builder(custLocation, custDestination)
           	.serviceDuration(SERVICE_DURATION)
           	.neededCapacity(1 + rng.nextInt(MAX_CAPACITY))
           	.buildDTO());
+	  
+	  System.out.println("NEW CUSTOMER AT " 
+	  			+ field.reverseNodes.get(cust.getDeliveryLocation()));
+	  
+	  return cust;
   }
 
   static View.Builder createGui(
