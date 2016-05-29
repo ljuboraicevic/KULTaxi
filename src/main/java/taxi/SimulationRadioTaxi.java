@@ -80,7 +80,7 @@ public final class SimulationRadioTaxi {
   private static final int MAX_CAPACITY = 3;
   private static final double NEW_CUSTOMER_PROB = .001;
 
-  private static final String MAP_FILE = "/home/ljubo/Documents/eclipse-workspace/KULTaxi/maps/square.dot";
+  private static final String MAP_FILE = "maps\\test.dot";
   private static final Map<String, Graph<MultiAttributeData>> GRAPH_CACHE =
     newHashMap();
 
