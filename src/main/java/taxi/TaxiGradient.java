@@ -38,6 +38,7 @@ class TaxiGradient extends Vehicle implements TaxiInterface {
   private static final double SPEED = 5000d;
   private long distance;
   private int customersServed;
+  private int taxiID;
   SimpleLogger log;
   /**
    * Parcel that is currently being delivered.
@@ -78,7 +79,8 @@ class TaxiGradient extends Vehicle implements TaxiInterface {
 		  int tankSize, 
 		  int gas, 
 		  GradientField field, 
-		  SimpleLogger log) {
+		  SimpleLogger log,
+		  int taxiID) {
 	  
     super(VehicleDTO.builder()
       .capacity(capacity)
@@ -95,6 +97,7 @@ class TaxiGradient extends Vehicle implements TaxiInterface {
     this.distance = 0; 
     this.customersServed = 0;
     this.log = log;
+    this.taxiID = taxiID;
   }
 
   @Override
@@ -116,6 +119,7 @@ class TaxiGradient extends Vehicle implements TaxiInterface {
     	//if it's at a node calculate approximate direction based on the field
     	approximateDirection = field.getApproximateDirection(this);
     	//printMovingFromTo();
+    	System.out.println(String.format("TAXI %d AT NODE %d", taxiID,field.reverseNodes.get(currentPosition)));
     }
     
     // if the taxi isn't driving a customer
@@ -129,7 +133,7 @@ class TaxiGradient extends Vehicle implements TaxiInterface {
     		//refill the tank when gas station is reached
     		if (rm.equalPosition(this, closestGasStation)) {
     			gas = tankSize;
-    			System.out.println("refilled");
+    			System.out.println(String.format("TAXI %d REFILLED", taxiID));
     		}
     	} 
     	
@@ -159,7 +163,9 @@ class TaxiGradient extends Vehicle implements TaxiInterface {
 	        
 	        if (!potentialCusts.isEmpty()) {
 	        	// pickup customer
-	        	pickUpCustomer(potentialCusts.get(0), pm, time);
+	        	Parcel customer = potentialCusts.get(0);
+	        	pickUpCustomer(customer, pm, time);
+	        	System.out.println(String.format("CUSTOMER PICKED UP AT %d BY TAXI %d",field.reverseNodes.get(customer.getPickupLocation()),taxiID));
 	        }
     	}
     }
