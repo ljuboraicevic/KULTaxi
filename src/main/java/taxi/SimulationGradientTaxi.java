@@ -75,7 +75,7 @@ public final class SimulationGradientTaxi {
   private static final double NEW_CUSTOMER_PROB = .001;
 
   private static final String MAP_FILE = "maps\\test.dot";
-  private static final int lastNode = 9;
+  private static final int lastNode = 99;
   
   private static final Map<String, Graph<MultiAttributeData>> GRAPH_CACHE = newHashMap();
 
@@ -163,9 +163,11 @@ public final class SimulationGradientTaxi {
     			field.nodes.get(rng.nextInt(lastNode + 1)),
     			TAXI_CAPACITY, 
     			tankSize, 
-    			gas, 
+    			//gas, 
+    			tankSize,
     			field,
-    			log);
+    			log,
+    			i);
     	
     	simulator.register(taxi);
     	log.registerTaxi(taxi);
@@ -218,7 +220,7 @@ public final class SimulationGradientTaxi {
           	.buildDTO());
 	  
 	  System.out.println("NEW CUSTOMER AT " 
-	  			+ field.reverseNodes.get(cust.getDeliveryLocation()));
+	  			+ field.reverseNodes.get(cust.getPickupLocation()));
 	  
 	  return cust;
   }
