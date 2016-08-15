@@ -3,43 +3,40 @@ package graphgeneration;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Random;
-import java.util.Set;
 
 /**
  * 
- * @author Adam Torzs Generates a random planar, simple, undirected graph and
+ * @author Adam Torzs Generates a planar, simple, undirected graph and
  *         saves it to a .dot file
  * 
- *         Currently it generates random points, and creates random edges
- *         between them *
+ *         Currently it generates a grid
+ *         
  */
 public class GenerateRandomGraph {
 
-	private final int NODE_NUM = 10;
-	private final int GRID_SIZE = 4;
-	private final double EDGE_DENSITY = 0.3;
+	//private final int NODE_NUM = 10;
+	private final int GRID_SIZE = 10;
+	//private final double EDGE_DENSITY = 0.3;
 
 	private final int MAP_SIZE = 3000;
 
-	private final Random random = new Random();
+	//private final Random random = new Random();
 
 	/**
 	 * 
 	 * Returns a new node with a random position within the given boundaries
 	 * 
 	 */
-	public Node randomNode(int num) {
+	/*public Node randomNode(int num) {
 		// Generate random position
 		double x = random.nextDouble() * MAP_SIZE;
 		double y = random.nextDouble() * MAP_SIZE;
 
 		return new Node(x, y, num);
 
-	}
+	}*/
 
 	/**
 	 * 
