@@ -46,11 +46,25 @@ public class SimpleLogger {
 		}
 	}
 	
+	public void printAllCustomerRawDataCSV(char separator)
+	{
+		System.out.println("register time" + separator + "pickup time" + separator + "delivery time");
+		for (Parcel customer: customers) {
+			System.out.print(customerRegistrationTime.get(customer));
+			System.out.print(separator);
+			System.out.print(customerPickupTime.get(customer));
+			System.out.print(separator);
+			System.out.print(customerDeliveryTime.get(customer));
+			System.out.println();
+		}
+	}
+	
 	public void printDistanceCoveredPerTaxi() {
 		for (TaxiInterface taxi: taxis) {
 			System.out.println(taxi.getDistanceCovered());
 		}
 	}
+	
 	
 	public void printNumberOfCustomersServedPerTaxi() {
 		for (TaxiInterface taxi: taxis) {
@@ -144,7 +158,7 @@ public class SimpleLogger {
 	
 	public void printAllStatistics() {
 		System.out.println("customer 1) register time 2) pickup time 3) delivery time");
-		printAllCustomerRawData();
+		printAllCustomerRawDataCSV(',');
         System.out.println("distance per taxi");
         printDistanceCoveredPerTaxi();
         System.out.println("customers served per taxi");

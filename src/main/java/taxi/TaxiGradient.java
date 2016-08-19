@@ -119,7 +119,7 @@ class TaxiGradient extends Vehicle implements TaxiInterface {
     	//if it's at a node calculate approximate direction based on the field
     	approximateDirection = field.getApproximateDirection(this);
     	//printMovingFromTo();
-    	System.out.println(String.format("TAXI %d AT NODE %d", taxiID,field.reverseNodes.get(currentPosition)));
+    	//System.out.println(String.format("TAXI %d AT NODE %d", taxiID,field.reverseNodes.get(currentPosition)));
     }
     
     // if the taxi isn't driving a customer
@@ -177,7 +177,9 @@ class TaxiGradient extends Vehicle implements TaxiInterface {
     	// if we're at the destination
     	if (currentPosition.equals(customerDestination)) {
     		// deliver passengers
+
     		deliverCustomer(curr.get(), pm, time);
+    		
     	}
     }
     
@@ -203,7 +205,7 @@ class TaxiGradient extends Vehicle implements TaxiInterface {
    * @param time
    */
   private void pickUpCustomer(Parcel c, PDPModel pm, TimeLapse time) {
-	  pickUpCustomer(c, pm, time, false);
+	  pickUpCustomer(c, pm, time, true);
   }
   
   /**
@@ -241,7 +243,7 @@ class TaxiGradient extends Vehicle implements TaxiInterface {
    * @param time
    */
   private void deliverCustomer(Parcel c, PDPModel pm, TimeLapse time) {
-	  deliverCustomer(c, pm, time, false);
+	  deliverCustomer(c, pm, time, true);
   }
   
   /**
@@ -255,8 +257,8 @@ class TaxiGradient extends Vehicle implements TaxiInterface {
    */
   private void deliverCustomer(Parcel c, PDPModel pm, TimeLapse time, boolean print) {
 	  if (print) {
-		  System.out.println("Customer delivered at " 
-					+ field.reverseNodes.get(curr.get().getDeliveryLocation()));
+		  System.out.println(String.format("CUSTOMER DELIVERED AT %d",
+					field.reverseNodes.get(curr.get().getDeliveryLocation())));
 	  }
 	  
 	  pm.deliver(this, curr.get(), time);

@@ -50,6 +50,7 @@ import com.github.rinde.rinsim.ui.renderers.RoadUserRenderer;
  * <p>
  * If this class is run on MacOS it might be necessary to use
  * -XstartOnFirstThread as a VM argument.
+ * 
  * @author Rinde van Lon
  */
 public final class SimulationGradientTaxi {
@@ -58,233 +59,278 @@ public final class SimulationGradientTaxi {
 	private static final int NUM_GAS_STATIONS = 1;
 	private static final long STANDARD_SIM_TIME = 8 * 60 * 60 * 1000;
 	static GradientField field;
-	
+
 	/******************/
-	
-  private static final int NUM_DEPOTS = 1;
-  private static final int NUM_TAXIS = 2;
-  private static final int NUM_CUSTOMERS = 1;
 
-  // time in ms
-  private static final long SERVICE_DURATION = 60000;
-  private static final int TAXI_CAPACITY = 10;
-  private static final int DEPOT_CAPACITY = 100;
+	private static final int NUM_DEPOTS = 1;
+	private static final int NUM_TAXIS = 10;
+	private static final int NUM_CUSTOMERS = 0;
 
-  private static final int SPEED_UP = 4;
-  private static final int MAX_CAPACITY = 3;
-  private static final double NEW_CUSTOMER_PROB = .001;
+	// time in ms
+	private static final long SERVICE_DURATION = 60000;
+	private static final int TAXI_CAPACITY = 10;
+	private static final int DEPOT_CAPACITY = 100;
 
-  private static final String MAP_FILE = "maps\\test.dot";
-  private static final int lastNode = 99;
-  
-  private static final Map<String, Graph<MultiAttributeData>> GRAPH_CACHE = newHashMap();
+	private static final int SPEED_UP = 4;
+	private static final int MAX_CAPACITY = 3;
+	// private static final double NEW_CUSTOMER_PROB = .001;
 
-  private static final long TEST_STOP_TIME = 20 * 60 * 1000;
-  private static final int TEST_SPEED_UP = 64;
+	// per 100 node
+	private static final int TOTAL_CUSTOMER = 50 * 4;// *4 is for the
+														// manipulated version,
+														// with customers only
+														// spawning in the first
+														// 2 hours
 
-  private SimulationGradientTaxi() { }
+	private static final String MAP_FILE = "maps\\test.dot";
+	private static final int lastNode = 99;
 
-  /**
-   * Starts the {@link SimulationRadioTaxi}.
-   * @param args The first option may optionally indicate the end time of the
-   *          simulation.
-   */
-  public static void main(@Nullable String[] args) {
-	  if (NUM_CUSTOMERS > NUM_TAXIS) { 
-		  System.out.println("Number of initial customers is greater than the number of taxis");
-		  System.exit(1);
-	  }
-    final long endTime = args != null && args.length >= 1 ? Long
-      .parseLong(args[0]) : STANDARD_SIM_TIME;
+	private static final Map<String, Graph<MultiAttributeData>> GRAPH_CACHE = newHashMap();
 
-    final String graphFile = args != null && args.length >= 2 ? args[1]
-      : MAP_FILE;
-    run(false, endTime, graphFile, null /* new Display() */, null, null);
-  }
+	private static final long TEST_STOP_TIME = 20 * 60 * 1000;
+	private static final int TEST_SPEED_UP = 64;
 
-  /**
-   * Run the example.
-   * @param testing If <code>true</code> enables the test mode.
-   */
-  public static void run(boolean testing) {
-    run(testing, Long.MAX_VALUE, MAP_FILE, null, null, null);
-  }
+	private SimulationGradientTaxi() {
+	}
 
-  /**
-   * Starts the example.
-   * @param testing Indicates whether the method should run in testing mode.
-   * @param endTime The time at which simulation should stop.
-   * @param graphFile The graph that should be loaded.
-   * @param display The display that should be used to show the ui on.
-   * @param m The monitor that should be used to show the ui on.
-   * @param list A listener that will receive callbacks from the ui.
-   * @return The simulator instance.
-   */
-  public static Simulator run(boolean testing, final long endTime,
-      String graphFile,
-      @Nullable Display display, @Nullable Monitor m, @Nullable Listener list) {
+	/**
+	 * Starts the {@link SimulationRadioTaxi}.
+	 * 
+	 * @param args
+	 *            The first option may optionally indicate the end time of the
+	 *            simulation.
+	 */
+	public static void main(@Nullable String[] args) {
+		if (NUM_CUSTOMERS > NUM_TAXIS) {
+			System.out.println("Number of initial customers is greater than the number of taxis");
+			System.exit(1);
+		}
+		final long endTime = args != null && args.length >= 1 ? Long.parseLong(args[0]) : STANDARD_SIM_TIME;
 
-    final View.Builder view = createGui(testing, display, m, list);
+		final String graphFile = args != null && args.length >= 2 ? args[1] : MAP_FILE;
+		run(false, endTime, graphFile, null /* new Display() */, null, null);
+	}
 
-    final Simulator simulator = Simulator.builder()
-      .addModel(RoadModelBuilders.staticGraph(loadGraph(graphFile)))
-      .addModel(DefaultPDPModel.builder())
-      .addModel(view)
-      .build();
-    
-    final RandomGenerator rng = simulator.getRandomGenerator();
+	/**
+	 * Run the example.
+	 * 
+	 * @param testing
+	 *            If <code>true</code> enables the test mode.
+	 */
+	public static void run(boolean testing) {
+		run(testing, Long.MAX_VALUE, MAP_FILE, null, null, null);
+	}
 
-    final RoadModel roadModel = simulator.getModelProvider().getModel(RoadModel.class);
-    
-    // initialize the gradient field
-    field = new GradientField(roadModel, rng, 2, 0.5);
-    try {
-		field.loadGraphNew(MAP_FILE, lastNode);
-	} catch (IOException e) { e.printStackTrace(); }
-    
-    final SimpleLogger log = new SimpleLogger();
-    
-    //add depots
-    for (int i = 0; i < NUM_DEPOTS; i++) {
-      simulator.register(new TaxiBase(roadModel.getRandomPosition(rng), DEPOT_CAPACITY));
-    }
-    
-	//add gas stations
-    for (int i = 0; i < NUM_GAS_STATIONS; i++) {
-      simulator.register(new GasStation(roadModel.getRandomPosition(rng), DEPOT_CAPACITY));
-    }
-    
-    // add taxis
-    for (int i = 0; i < NUM_TAXIS; i++) {
-    	int tankSize = (MAX_TANK / 2) + rng.nextInt(MAX_TANK / 2);
-    	int gas      = Math.round(tankSize / 3) + rng.nextInt(tankSize / 2);
-    	
-    	TaxiGradient taxi = new TaxiGradient(
-    			field.nodes.get(rng.nextInt(lastNode + 1)),
-    			TAXI_CAPACITY, 
-    			tankSize, 
-    			//gas, 
-    			tankSize,
-    			field,
-    			log,
-    			i);
-    	
-    	simulator.register(taxi);
-    	log.registerTaxi(taxi);
-    }
-    
-    // add customers
-    for (int i = 0; i < NUM_CUSTOMERS; i++) {
-    	Customer cust = generateNewRandomCustomer(roadModel, rng);
-    	simulator.register(cust);
-    	log.logCustomerRegistered(cust, 0);
-    }
-    
-    //notify the field about initial customers
-    field.updateCustomerPositions();
-    
-    simulator.addTickListener(new TickListener() {
-    	
-      @Override
-      public void tick(TimeLapse time) {
-    	//stop the simulation if time runs out
-        if (time.getStartTime() > endTime) {
-          simulator.stop();
-          log.printAllStatistics();
-        } 
-        // if we still have time, roll the dice and maybe add a new customer
-        else if (rng.nextDouble() < NEW_CUSTOMER_PROB) {
-       		Customer cust = generateNewRandomCustomer(roadModel, rng);
-        	simulator.register(cust);
-        	field.updateCustomerPositions();
-        	log.logCustomerRegistered(cust, time.getTime());
-        }
-      }
+	/**
+	 * Starts the example.
+	 * 
+	 * @param testing
+	 *            Indicates whether the method should run in testing mode.
+	 * @param endTime
+	 *            The time at which simulation should stop.
+	 * @param graphFile
+	 *            The graph that should be loaded.
+	 * @param display
+	 *            The display that should be used to show the ui on.
+	 * @param m
+	 *            The monitor that should be used to show the ui on.
+	 * @param list
+	 *            A listener that will receive callbacks from the ui.
+	 * @return The simulator instance.
+	 */
+	public static Simulator run(boolean testing, final long endTime, String graphFile, @Nullable Display display,
+			@Nullable Monitor m, @Nullable Listener list) {
 
-      @Override
-      public void afterTick(TimeLapse timeLapse) {}
-    });
-    
-    simulator.start();
-    return simulator;
-  }
-  
-  private static Customer generateNewRandomCustomer(RoadModel rm, RandomGenerator rng) {
-	  Point custLocation = field.nodes.get(rng.nextInt(lastNode + 1));
-	  Point custDestination = field.nodes.get(rng.nextInt(lastNode + 1));
-	  
-	  Customer cust = new Customer(
-              Parcel.builder(custLocation, custDestination)
-          	.serviceDuration(SERVICE_DURATION)
-          	.neededCapacity(1 + rng.nextInt(MAX_CAPACITY))
-          	.buildDTO());
-	  
-	  System.out.println("NEW CUSTOMER AT " 
-	  			+ field.reverseNodes.get(cust.getPickupLocation()));
-	  
-	  return cust;
-  }
+		final View.Builder view = createGui(testing, display, m, list);
 
-  static View.Builder createGui(
-      boolean testing,
-      @Nullable Display display,
-      @Nullable Monitor m,
-      @Nullable Listener list) {
+		final Simulator simulator = Simulator.builder().addModel(RoadModelBuilders.staticGraph(loadGraph(graphFile)))
+				.addModel(DefaultPDPModel.builder()).addModel(view).build();
 
-    View.Builder view = View.builder()
-      .with(GraphRoadModelRenderer.builder())
-      .with(RoadUserRenderer.builder()
-        .withImageAssociation(
-          TaxiBase.class, "/graphics/perspective/tall-building-64.png")
-        .withImageAssociation(
-          Taxi.class, "/graphics/flat/taxi-32.png")
-        .withImageAssociation(
-                TaxiGradient.class, "/graphics/flat/taxi-32.png")
-        .withImageAssociation(
-          Customer.class, "/graphics/flat/person-red-32.png")
-        .withImageAssociation(
-        	GasStation.class, 
-        	"/graphics/flat/warehouse-32.png"))
-      //.with(TaxiRenderer.builder(TaxiRenderer.Language.ENGLISH))
-      .withTitleAppendix("Taxi Demo");
+		final RandomGenerator rng = simulator.getRandomGenerator();
 
-    if (testing) {
-      view = view.withAutoClose()
-        .withAutoPlay()
-        .withSimulatorEndTime(TEST_STOP_TIME)
-        .withSpeedUp(TEST_SPEED_UP);
-    } else if (m != null && list != null && display != null) {
-      view = view.withMonitor(m)
-        .withSpeedUp(SPEED_UP)
-        .withResolution(m.getClientArea().width, m.getClientArea().height)
-        .withDisplay(display)
-        .withCallback(list)
-        .withAsync()
-        .withAutoPlay()
-        .withAutoClose();
-    }
-    return view;
-  }
+		final RoadModel roadModel = simulator.getModelProvider().getModel(RoadModel.class);
 
-  // load the graph file
-  static Graph<MultiAttributeData> loadGraph(String name) {
-    try {
-      if (GRAPH_CACHE.containsKey(name)) {
-        return GRAPH_CACHE.get(name);
-      }
-      final Graph<MultiAttributeData> g = DotGraphIO
-        .getMultiAttributeGraphIO(
-          Filters.selfCycleFilter())
-        .read(
-          //SimulationRadioTaxi.class.getResourceAsStream(name));
-        		name);
+		// initialize the gradient field
+		field = new GradientField(roadModel, rng, 2, 0);
+		try {
+			field.loadGraphNew(MAP_FILE, lastNode);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
-      GRAPH_CACHE.put(name, g);
-      return g;
-    } catch (final FileNotFoundException e) {
-      throw new IllegalStateException(e);
-    } catch (final IOException e) {
-      throw new IllegalStateException(e);
-    }
-  }
+		final SimpleLogger log = new SimpleLogger();
+
+		// add depots
+		for (int i = 0; i < NUM_DEPOTS; i++) {
+			simulator.register(new TaxiBase(roadModel.getRandomPosition(rng), DEPOT_CAPACITY));
+		}
+
+		// add gas stations
+		for (int i = 0; i < NUM_GAS_STATIONS; i++) {
+			simulator.register(new GasStation(roadModel.getRandomPosition(rng), DEPOT_CAPACITY));
+		}
+
+		// add taxis
+		for (int i = 0; i < NUM_TAXIS; i++) {
+			int tankSize = (int) Math.round((MAX_TANK / 2.0) + rng.nextInt((int) (MAX_TANK / 2.0)));
+			// int gas = (int)Math.round(tankSize / 2.0) + rng.nextInt((int)
+			// (tankSize / 2.0));
+
+			TaxiGradient taxi = new TaxiGradient(field.nodes.get(rng.nextInt(lastNode + 1)), TAXI_CAPACITY, tankSize,
+					// gas,
+					tankSize, field, log, i);
+
+			simulator.register(taxi);
+			log.registerTaxi(taxi);
+		}
+
+		// add customers
+		for (int i = 0; i < NUM_CUSTOMERS; i++) {
+			Customer cust = generateNewRandomCustomer(roadModel, rng);
+			simulator.register(cust);
+			log.logCustomerRegistered(cust, 0);
+		}
+
+		// notify the field about initial customers
+		field.updateCustomerPositions();
+
+		simulator.addTickListener(new TickListener() {
+
+			@Override
+			public void tick(TimeLapse time) {
+				// stop the simulation if time runs out
+				if (time.getStartTime() > endTime) {
+					simulator.stop();
+					log.printAllStatistics();
+				}
+				// if we still have time, roll the dice and maybe add a new
+				// customer
+				//USE THIS TO CREATE FULLY RANDOM CUSTOMERS
+				/*
+				 * else if (rng.nextDouble() < NEW_CUSTOMER_PROB) { Customer
+				 * cust = generateNewRandomCustomer(roadModel, rng);
+				 * simulator.register(cust); field.updateCustomerPositions();
+				 * log.logCustomerRegistered(cust, time.getTime()); }
+				 */
+				// else if (time.get)
+				
+				//USE THIS TO CREATE CUSTOMERS IN A REGULAR FASHION
+				//THE SECOND CONDITION OF THE IF CAN BE REMOVED TO LET CUSTOMERS BE CREATED THROUGHOUT THE SIM
+				else if ((time.getTime()) % ((30000000 / TOTAL_CUSTOMER) / ((lastNode + 1) / 100)) == 0
+						&& time.getTime() < 2 * 60 * 60 * 1000) {
+					// Customer cust = generateNewRandomCustomer(roadModel,rng); //Random customer locations
+					Customer cust = generateRandomCustomerNearNode(88, roadModel, rng); //Constrained customer locations
+					simulator.register(cust);
+					field.updateCustomerPositions();
+					log.logCustomerRegistered(cust, time.getTime());
+				}
+
+			}
+
+			@Override
+			public void afterTick(TimeLapse timeLapse) {
+			}
+		});
+
+		simulator.start();
+		return simulator;
+	}
+
+	private static Customer generateNewRandomCustomer(RoadModel rm, RandomGenerator rng) {
+		Point custLocation = field.nodes.get(rng.nextInt(lastNode + 1));
+		Point custDestination = field.nodes.get(rng.nextInt(lastNode + 1));
+
+		Customer cust = new Customer(Parcel.builder(custLocation, custDestination).serviceDuration(SERVICE_DURATION)
+				.neededCapacity(1 + rng.nextInt(MAX_CAPACITY)).buildDTO());
+
+		System.out.println("NEW CUSTOMER AT " + field.reverseNodes.get(cust.getPickupLocation()));
+
+		return cust;
+	}
+
+	private static Customer generateRandomCustomerNearNode(int node, RoadModel rm, RandomGenerator rng) {
+		int rand = rng.nextInt(5);
+		int custNode = 0;
+		switch (rand) {
+		case 0:
+			custNode = node;
+			break;
+		case 1:
+			if (node < 10)
+				custNode = node;
+			else
+				custNode = node - 10;
+			break;
+		case 2:
+			if (node % 10 == 0)
+				custNode = node;
+			else
+				custNode = node - 1;
+			break;
+		case 3:
+			if (node % 10 == 9)
+				custNode = node;
+			else
+				custNode = node + 1;
+			break;
+		case 4:
+			if (node > 89)
+				custNode = node;
+			else
+				custNode = node + 10;
+			break;
+		}
+
+		Point custLocation = field.nodes.get(custNode);
+		Point custDestination = field.nodes.get(rng.nextInt(lastNode + 1));
+
+		Customer cust = new Customer(Parcel.builder(custLocation, custDestination).serviceDuration(SERVICE_DURATION)
+				.neededCapacity(1 + rng.nextInt(MAX_CAPACITY)).buildDTO());
+
+		System.out.println("NEW CUSTOMER AT " + field.reverseNodes.get(cust.getPickupLocation()));
+
+		return cust;
+	}
+
+	static View.Builder createGui(boolean testing, @Nullable Display display, @Nullable Monitor m,
+			@Nullable Listener list) {
+
+		View.Builder view = View.builder().with(GraphRoadModelRenderer.builder())
+				.with(RoadUserRenderer.builder()
+						.withImageAssociation(TaxiBase.class, "/graphics/perspective/tall-building-64.png")
+						.withImageAssociation(Taxi.class, "/graphics/flat/taxi-32.png")
+						.withImageAssociation(TaxiGradient.class, "/graphics/flat/taxi-32.png")
+						.withImageAssociation(Customer.class, "/graphics/flat/person-red-32.png")
+						.withImageAssociation(GasStation.class, "/graphics/flat/warehouse-32.png"))
+				// .with(TaxiRenderer.builder(TaxiRenderer.Language.ENGLISH))
+				.withTitleAppendix("Taxi Demo");
+
+		if (testing) {
+			view = view.withAutoClose().withAutoPlay().withSimulatorEndTime(TEST_STOP_TIME).withSpeedUp(TEST_SPEED_UP);
+		} else if (m != null && list != null && display != null) {
+			view = view.withMonitor(m).withSpeedUp(SPEED_UP)
+					.withResolution(m.getClientArea().width, m.getClientArea().height).withDisplay(display)
+					.withCallback(list).withAsync().withAutoPlay().withAutoClose();
+		}
+		return view;
+	}
+
+	// load the graph file
+	static Graph<MultiAttributeData> loadGraph(String name) {
+		try {
+			if (GRAPH_CACHE.containsKey(name)) {
+				return GRAPH_CACHE.get(name);
+			}
+			final Graph<MultiAttributeData> g = DotGraphIO.getMultiAttributeGraphIO(Filters.selfCycleFilter()).read(
+					// SimulationRadioTaxi.class.getResourceAsStream(name));
+					name);
+
+			GRAPH_CACHE.put(name, g);
+			return g;
+		} catch (final FileNotFoundException e) {
+			throw new IllegalStateException(e);
+		} catch (final IOException e) {
+			throw new IllegalStateException(e);
+		}
+	}
 }
